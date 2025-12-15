@@ -74,9 +74,12 @@ public class JoinRequestServiceImpl implements JoinRequestService {
         JoinRequest jr = joinRequestRepository.findById(joinRequestId)
                 .orElseThrow(() -> new AppException(ErrorCode.JOIN_REQUEST_NOT_FOUND));
 
+        // 다른 사용자가 등록을 취소할 수 없다
         if (!jr.getApplicantUserId().equals(userId)) {
-            throw new AppException(ErrorCode.JOIN_REQUEST_FORBIDDEN);
+            throw new AppException(ErrorCode.JOIN_REQUEST_CANNOT_CANCEL_FORBIDDEN);
         }
+
+        // applied 상태가 아니라면 취소할 수 없다
         if (jr.getStatus() != JoinRequestStatus.APPLIED) {
             throw new AppException(ErrorCode.JOIN_REQUEST_CANNOT_CANCEL_NOT_APPLIED);
         }

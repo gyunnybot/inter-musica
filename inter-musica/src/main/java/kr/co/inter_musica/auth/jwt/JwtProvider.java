@@ -26,9 +26,11 @@ public class JwtProvider {
     public String generateAccessToken(Long userId) {
         try {
             Map<String, Object> header = new HashMap<String, Object>();
-            header.put("alg", "HS256");
-            header.put("typ", "JWT");
+            header.put("alg", "HS256"); // 서명 방식
+            header.put("typ", "JWT"); // 토큰 타입
 
+            // LocalDate 방식은 사용 불가능한 이유?
+            // JWT 스펙에서 iat (발급 시각) / exp (만료 시각)은 초 단위의 절대 시각 기입이 표준 관행
             long now = Instant.now().getEpochSecond();
             long exp = now + expirationSeconds;
 
@@ -55,8 +57,10 @@ public class JwtProvider {
     public boolean validate(String token) {
         try {
             Map<String, Object> payload = parseAndVerify(token);
+
             long exp = ((Number) payload.get("exp")).longValue();
             long now = Instant.now().getEpochSecond();
+
             return now <= exp;
         } catch (Exception e) {
             return false;
