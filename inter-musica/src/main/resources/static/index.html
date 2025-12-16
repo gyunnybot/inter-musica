@@ -1,434 +1,550 @@
 <!doctype html>
 <html lang="ko">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Inter Musica - Mini Front</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Inter Musica MVP Demo</title>
     <style>
-        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 20px; }
-        h2 { margin-top: 28px; }
-        .row { display: flex; gap: 12px; flex-wrap: wrap; }
-        .card { border: 1px solid #ddd; border-radius: 10px; padding: 14px; min-width: 320px; flex: 1; }
-        label { display: block; font-size: 12px; margin: 8px 0 4px; color: #555; }
-        input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 8px; }
-        button { padding: 10px 12px; border: 0; border-radius: 8px; cursor: pointer; }
-        button.primary { background: #111; color: #fff; }
-        button.gray { background: #eee; }
-        pre { background: #0b1020; color: #d7e0ff; padding: 12px; border-radius: 10px; overflow:auto; }
-        .small { font-size: 12px; color: #666; }
-        .tokens { display:flex; gap:10px; flex-wrap:wrap; }
-        .tokenBox { flex:1; min-width: 320px; }
+        :root { --bg:#0b1020; --card:#121a33; --text:#e8eeff; --muted:#a7b2d6; --line:#263258; --ok:#3ddc97; --bad:#ff6b6b; --btn:#2a3cff; }
+        body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", sans-serif; background:var(--bg); color:var(--text); }
+        header { padding: 20px 18px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: rgba(11,16,32,0.92); backdrop-filter: blur(8px); z-index: 10; }
+        header h1 { margin:0; font-size: 18px; }
+        header .row { display:flex; gap:10px; align-items:center; flex-wrap: wrap; margin-top: 10px; }
+        input, select, textarea { background: #0f1630; border: 1px solid var(--line); color: var(--text); border-radius: 10px; padding: 10px 12px; outline: none; }
+        input::placeholder, textarea::placeholder { color: #7f8bb3; }
+        select { min-width: 210px; }
+        textarea { width: 100%; min-height: 80px; resize: vertical; }
+        button { background: var(--btn); color: white; border: 0; border-radius: 12px; padding: 10px 12px; cursor: pointer; }
+        button.secondary { background: #233056; }
+        button.danger { background: #b1223a; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        main { padding: 18px; display: grid; gap: 14px; grid-template-columns: 1fr; max-width: 1100px; margin: 0 auto; }
+        .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+        .card h2 { margin: 0 0 10px; font-size: 16px; }
+        .grid { display:grid; gap:10px; grid-template-columns: 1fr; }
+        @media (min-width: 920px) { .grid.cols2 { grid-template-columns: 1fr 1fr; } }
+        .row { display:flex; gap:10px; flex-wrap: wrap; align-items:center; }
+        .muted { color: var(--muted); font-size: 13px; }
+        .pill { display:inline-flex; align-items:center; gap:8px; padding: 6px 10px; border-radius: 999px; border:1px solid var(--line); background:#0f1630; }
+        .status.ok { color: var(--ok); }
+        .status.bad { color: var(--bad); }
+        .card { min-width: 0; }
+.grid.cols2 > * { min-width: 0; }
+
+pre {
+  background:#0a0f22;
+  border:1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  margin: 10px 0 0;
+
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+        details { border:1px solid var(--line); border-radius: 14px; padding: 10px 12px; background:#0f1630; }
+        summary { cursor:pointer; font-weight: 650; }
+        .small { font-size: 12px; }
     </style>
 </head>
+
 <body>
-<h1>Inter Musica - Mini Front</h1>
-<p class="small">
-    기본 baseUrl: <code>http://localhost:8080</code> (같은 서버에서 서빙되면 CORS 없이 동작)
-</p>
+<header>
+    <h1>Inter Musica MVP Demo (enum 하드코딩 드롭다운)</h1>
+    <div class="row">
+    <span class="pill">
+      <span class="muted">Base URL</span>
+      <input id="baseUrl" style="min-width:260px" placeholder="http://localhost:8080" />
+      <button class="secondary" id="saveBaseUrl">저장</button>
+    </span>
 
-<div class="card">
-    <label>Base URL</label>
-    <input id="baseUrl" value="http://localhost:8080" />
-    <div class="small">서버 포트가 다르면 수정하세요.</div>
-</div>
+        <span class="pill">
+      <span class="muted">JWT</span>
+      <span id="jwtState" class="status bad">없음</span>
+      <button class="secondary" id="clearToken">토큰 삭제</button>
+    </span>
+    </div>
+    <div class="muted small">
+        Instrument / Region / Level / JoinRequestStatus는 드롭다운으로만 선택합니다. (API 응답 테스트용)
+    </div>
+</header>
 
-<h2>1) 계정</h2>
+<main>
 
-<div class="row">
-    <div class="card">
-        <h3>회원가입 (Signup)</h3>
+    <div class="grid cols2">
 
-        <label>email</label>
-        <input id="suEmail" value="user1@test.com" />
+        <section class="card">
+            <h2>1) Auth - 회원가입</h2>
+            <div class="grid">
+                <input id="suEmail" placeholder="email (ex: a@a.com)" />
+                <input id="suPassword" placeholder="password" type="password" />
+                <input id="suName" placeholder="name (ex: 홍길동)" />
 
-        <label>password</label>
-        <input id="suPw" value="1234" />
+                <div class="row">
+                    <select id="suInstrument"></select>
+                    <select id="suLevel"></select>
+                    <select id="suRegion"></select>
+                </div>
 
-        <label>instrument</label>
-        <input id="suInst" value="DRUM" />
+                <button id="btnSignup">POST /auth/signup</button>
+            </div>
+            <pre id="outSignup"></pre>
+        </section>
 
-        <label>level</label>
-        <select id="suLevel">
-            <option>HOBBY_UNDER_A_YEAR</option>
-            <option>HOBBY_UNDER_FIVE_YEAR</option>
-            <option selected>HOBBY_OVER_FIVE_YEAR</option>
-            <option>MAJOR_STUDENT</option>
-        </select>
+        <section class="card">
+            <h2>2) Auth - 로그인</h2>
+            <div class="grid">
+                <input id="liEmail" placeholder="email" />
+                <input id="liPassword" placeholder="password" type="password" />
+                <button id="btnLogin">POST /auth/login (토큰 저장)</button>
+            </div>
+            <pre id="outLogin"></pre>
+        </section>
 
-        <label>region</label>
-        <input id="suRegion" value="SEOUL_MAPO" />
-
-        <div style="margin-top:10px;">
-            <button class="primary" onclick="signup()">POST /auth/signup</button>
-        </div>
     </div>
 
-    <div class="card">
-        <h3>로그인 (Login)</h3>
-        <p class="small">리더/지원자 토큰을 따로 저장해두면 수락/취소 테스트가 쉬워요.</p>
+    <div class="grid cols2">
 
-        <label>role</label>
-        <select id="loginRole">
-            <option value="leader">LEADER(팀장)</option>
-            <option value="applicant">APPLICANT(지원자)</option>
-        </select>
+        <section class="card">
+            <h2>3) Profile - 내 프로필</h2>
+            <div class="row">
+                <button id="btnGetMe">GET /profiles/me</button>
+            </div>
 
-        <label>email</label>
-        <input id="liEmail" value="user1@test.com" />
+            <details style="margin-top:10px">
+                <summary>PATCH /profiles/me (선택값만 수정)</summary>
+                <div class="grid" style="margin-top:10px">
+                    <input id="puName" placeholder="name (optional)" />
+                    <div class="row">
+                        <select id="puInstrument"></select>
+                        <select id="puLevel"></select>
+                        <select id="puRegion"></select>
+                    </div>
+                    <div class="muted small">각 드롭다운이 “(수정 안 함)”이면 해당 필드는 수정하지 않습니다.</div>
+                    <button id="btnPatchMe">PATCH /profiles/me</button>
+                </div>
+            </details>
 
-        <label>password</label>
-        <input id="liPw" value="1234" />
+            <pre id="outProfile"></pre>
+        </section>
 
-        <div style="margin-top:10px;" class="row">
-            <button class="primary" onclick="login()">POST /auth/login</button>
-            <button class="gray" onclick="clearTokens()">토큰 초기화</button>
-        </div>
-    </div>
-</div>
+        <section class="card">
+            <h2>4) Team - 생성 / 조회</h2>
 
-<div class="card tokens" style="margin-top:12px;">
-    <div class="tokenBox">
-        <label>Leader Token</label>
-        <textarea id="leaderToken" rows="3" placeholder="login 하면 자동으로 채워짐"></textarea>
-    </div>
-    <div class="tokenBox">
-        <label>Applicant Token</label>
-        <textarea id="applicantToken" rows="3" placeholder="login 하면 자동으로 채워짐"></textarea>
-    </div>
-</div>
+            <details open>
+                <summary>POST /teams (팀 생성)</summary>
+                <div class="grid" style="margin-top:10px">
+                    <input id="ctName" placeholder="teamName" />
+                    <select id="ctRegion"></select>
+                    <textarea id="ctNote" placeholder="practiceNote (optional)"></textarea>
+                    <button id="btnCreateTeam">팀 생성</button>
+                </div>
+            </details>
 
-<h2>2) 팀/슬롯</h2>
-<div class="row">
-    <div class="card">
-        <h3>팀 생성 (Leader)</h3>
+            <details style="margin-top:10px">
+                <summary>GET /teams (팀 목록)</summary>
+                <div class="row" style="margin-top:10px">
+                    <select id="ltRegion"></select>
+                    <button id="btnListTeams">팀 목록 조회</button>
+                </div>
+            </details>
 
-        <label>name</label>
-        <input id="teamName" value="홍대 재즈 콤보" />
+            <details style="margin-top:10px">
+                <summary>GET /teams/{teamId} (단건)</summary>
+                <div class="row" style="margin-top:10px">
+                    <input id="gtTeamId" placeholder="teamId" type="number" min="1"/>
+                    <button id="btnGetTeam">단건 조회</button>
+                </div>
+            </details>
 
-        <label>intro</label>
-        <input id="teamIntro" value="주 1회 합주합니다" />
+            <pre id="outTeam"></pre>
+        </section>
 
-        <label>goal</label>
-        <input id="teamGoal" value="취미 합주" />
-
-        <label>practiceInfo</label>
-        <input id="teamPractice" value="SEOUL_MAPO / 토 14:00" />
-
-        <div style="margin-top:10px;">
-            <button class="primary" onclick="createTeam()">POST /teams</button>
-        </div>
-
-        <label style="margin-top:12px;">teamId</label>
-        <input id="teamId" placeholder="응답에서 자동 저장됨" />
-    </div>
-
-    <div class="card">
-        <h3>슬롯 생성 (Leader)</h3>
-
-        <label>teamId</label>
-        <input id="slotTeamId" placeholder="위 teamId 자동 반영" />
-
-        <label>instrument</label>
-        <input id="slotInst" value="DRUM" />
-
-        <label>capacity</label>
-        <input id="slotCap" type="number" value="1" />
-
-        <label>requiredLevelMin</label>
-        <select id="slotLevel">
-            <option>HOBBY_UNDER_A_YEAR</option>
-            <option selected>HOBBY_UNDER_FIVE_YEAR</option>
-            <option>HOBBY_OVER_FIVE_YEAR</option>
-            <option>MAJOR_STUDENT</option>
-        </select>
-
-        <div style="margin-top:10px;">
-            <button class="primary" onclick="createSlot()">POST /teams/{teamId}/slots</button>
-        </div>
-
-        <label style="margin-top:12px;">slotId</label>
-        <input id="slotId" placeholder="응답에서 자동 저장됨" />
-    </div>
-</div>
-
-<h2>3) 지원/취소/수락</h2>
-<div class="row">
-    <div class="card">
-        <h3>지원 (Applicant)</h3>
-        <label>teamId</label>
-        <input id="applyTeamId" placeholder="teamId" />
-
-        <label>slotId</label>
-        <input id="applySlotId" placeholder="slotId" />
-
-        <div style="margin-top:10px;">
-            <button class="primary" onclick="apply()">POST /teams/{teamId}/slots/{slotId}/join-requests</button>
-        </div>
-
-        <label style="margin-top:12px;">joinRequestId</label>
-        <input id="joinRequestId" placeholder="응답에서 자동 저장됨" />
     </div>
 
-    <div class="card">
-        <h3>취소 (Applicant)</h3>
-        <label>joinRequestId</label>
-        <input id="cancelJoinRequestId" placeholder="위 joinRequestId 자동 반영" />
+    <div class="grid cols2">
 
-        <div style="margin-top:10px;">
-            <button class="primary" onclick="cancel()">POST /join-requests/{id}/cancel</button>
-        </div>
-        <p class="small">APPLIED 상태에서만 취소 성공</p>
+        <section class="card">
+            <h2>5) PositionSlot - 생성 / 조회</h2>
+
+            <details open>
+                <summary>POST /teams/{teamId}/positions</summary>
+                <div class="grid" style="margin-top:10px">
+                    <input id="psTeamId" placeholder="teamId" type="number" min="1"/>
+                    <div class="row">
+                        <select id="psInstrument"></select>
+                        <input id="psCapacity" placeholder="capacity" type="number" min="1"/>
+                        <select id="psLevelMin"></select>
+                    </div>
+                    <button id="btnCreateSlot">포지션 슬롯 생성</button>
+                </div>
+            </details>
+
+            <details style="margin-top:10px">
+                <summary>GET /teams/{teamId}/positions</summary>
+                <div class="row" style="margin-top:10px">
+                    <input id="lsTeamId" placeholder="teamId" type="number" min="1"/>
+                    <button id="btnListSlots">포지션 슬롯 조회</button>
+                </div>
+            </details>
+
+            <pre id="outSlot"></pre>
+        </section>
+
+        <section class="card">
+            <h2>6) JoinRequest - 지원 / 취소 / 리더결정</h2>
+
+            <details open>
+                <summary>POST /teams/{teamId}/positions/{positionId}/join-requests (지원)</summary>
+                <div class="row" style="margin-top:10px">
+                    <input id="apTeamId" placeholder="teamId" type="number" min="1"/>
+                    <input id="apPosId" placeholder="positionId" type="number" min="1"/>
+                    <button id="btnApply">지원</button>
+                </div>
+            </details>
+
+            <details style="margin-top:10px">
+                <summary>POST /join-requests/{joinRequestId}/cancel (취소)</summary>
+                <div class="row" style="margin-top:10px">
+                    <input id="caJoinId" placeholder="joinRequestId" type="number" min="1"/>
+                    <button class="danger" id="btnCancel">취소</button>
+                </div>
+            </details>
+
+            <details style="margin-top:10px">
+                <summary>GET /teams/{teamId}/positions/{positionId}/join-requests (지원자 목록, 팀장)</summary>
+                <div class="row" style="margin-top:10px">
+                    <input id="laTeamId" placeholder="teamId" type="number" min="1"/>
+                    <input id="laPosId" placeholder="positionId" type="number" min="1"/>
+                    <select id="laStatus"></select>
+                    <button id="btnListApplicants">목록 조회</button>
+                </div>
+            </details>
+
+            <details style="margin-top:10px">
+                <summary>POST /join-requests/{joinRequestId}/accept | reject (팀장)</summary>
+                <div class="row" style="margin-top:10px">
+                    <input id="deJoinId" placeholder="joinRequestId" type="number" min="1"/>
+                    <button id="btnAccept">수락</button>
+                    <button class="secondary" id="btnReject">거절</button>
+                </div>
+            </details>
+
+            <pre id="outJoin"></pre>
+        </section>
+
     </div>
 
-    <div class="card">
-        <h3>수락/거절 (Leader)</h3>
-        <label>joinRequestId</label>
-        <input id="reviewJoinRequestId" placeholder="위 joinRequestId 자동 반영" />
+    <section class="card">
+        <h2>응답 로그(최근 1개)</h2>
+        <pre id="outLast"></pre>
+    </section>
 
-        <div style="margin-top:10px;" class="row">
-            <button class="primary" onclick="accept()">POST /join-requests/{id}/accept</button>
-            <button class="gray" onclick="reject()">POST /join-requests/{id}/reject</button>
-        </div>
-        <p class="small">정원/이미 다른 팀 ACTIVE 멤버 여부에 따라 409가 날 수 있음</p>
-    </div>
-</div>
-
-<h2>4) 조회</h2>
-<div class="row">
-    <div class="card">
-        <h3>팀 검색 (Public)</h3>
-
-        <label>region (optional)</label>
-        <input id="qRegion" placeholder="SEOUL_MAPO" />
-
-        <label>instrument (optional)</label>
-        <input id="qInst" placeholder="DRUM" />
-
-        <label>level (optional)</label>
-        <select id="qLevel">
-            <option value="">(none)</option>
-            <option>HOBBY_UNDER_A_YEAR</option>
-            <option>HOBBY_UNDER_FIVE_YEAR</option>
-            <option>HOBBY_OVER_FIVE_YEAR</option>
-            <option>MAJOR_STUDENT</option>
-        </select>
-
-        <div style="margin-top:10px;">
-            <button class="primary" onclick="searchTeams()">GET /teams</button>
-        </div>
-    </div>
-
-    <div class="card">
-        <h3>내 지원 현황 (Applicant)</h3>
-        <label>status (optional)</label>
-        <select id="myStatus">
-            <option value="">(none)</option>
-            <option>APPLIED</option>
-            <option>ACCEPTED</option>
-            <option>REJECTED</option>
-            <option>CANCELED</option>
-        </select>
-
-        <div style="margin-top:10px;">
-            <button class="primary" onclick="myJoinRequests()">GET /me/join-requests</button>
-        </div>
-    </div>
-
-    <div class="card">
-        <h3>슬롯 지원자 목록 (Leader)</h3>
-        <label>teamId</label>
-        <input id="listTeamId" placeholder="teamId" />
-
-        <label>slotId</label>
-        <input id="listSlotId" placeholder="slotId" />
-
-        <label>status</label>
-        <select id="listStatus">
-            <option selected>APPLIED</option>
-            <option>ACCEPTED</option>
-            <option>REJECTED</option>
-            <option>CANCELED</option>
-        </select>
-
-        <div style="margin-top:10px;">
-            <button class="primary" onclick="listSlotRequests()">GET /teams/{teamId}/slots/{slotId}/join-requests</button>
-        </div>
-    </div>
-</div>
-
-<h2>응답 로그</h2>
-<pre id="log">{}</pre>
+</main>
 
 <script>
     function $(id) { return document.getElementById(id); }
 
-    function baseUrl() {
-      return $("baseUrl").value.replace(/\/+$/, "");
+    // ==========================
+    // ✅ 하드코딩된 enum 목록 (서버 enum과 반드시 동일해야 함)
+    // ==========================
+    const INSTRUMENTS = [
+      "VIOLIN","PIANO","VIOLA","CELLO",
+      "VOCAL","GUITAR","BASS","DRUMS","KEYBOARD"
+    ];
+
+    const LEVELS = [
+      "HOBBY_UNDER_A_YEAR",
+      "HOBBY_UNDER_FIVE_YEAR",
+      "HOBBY_OVER_FIVE_YEAR",
+      "MAJOR_STUDENT"
+    ];
+
+    const REGIONS = [
+      "SEOUL_SEOCHO",
+      "SEOUL_HONGDAE",
+      "SEOUL_ITAEWON",
+      "SEOUL_SEONGSU",
+      "SEOUL_SEOUL_FOREST"
+    ];
+
+    const JOIN_REQUEST_STATUSES = ["APPLIED","ACCEPTED","REJECTED","CANCELED"];
+
+    // ==========================
+    // Local storage
+    // ==========================
+    const storage = {
+      get baseUrl() { return localStorage.getItem("demo.baseUrl") || "http://localhost:8080"; },
+      set baseUrl(v) { localStorage.setItem("demo.baseUrl", v); },
+      get token() { return localStorage.getItem("demo.jwt") || ""; },
+      set token(v) { localStorage.setItem("demo.jwt", v); },
+      clearToken() { localStorage.removeItem("demo.jwt"); }
+    };
+
+    function setJwtState() {
+      const has = !!storage.token;
+      $("jwtState").textContent = has ? "설정됨" : "없음";
+      $("jwtState").className = "status " + (has ? "ok" : "bad");
     }
 
-    function setLog(obj) {
-      $("log").textContent = typeof obj === "string" ? obj : JSON.stringify(obj, null, 2);
+    function pretty(obj) {
+      if (typeof obj === "string") return obj;
+      try { return JSON.stringify(obj, null, 2); } catch { return String(obj); }
     }
 
-    function loadTokens() {
-      $("leaderToken").value = localStorage.getItem("leaderToken") || "";
-      $("applicantToken").value = localStorage.getItem("applicantToken") || "";
-    }
+    async function api(method, path, body) {
+      const base = storage.baseUrl.replace(/\/+$/, "");
+      const url = base + path;
 
-    function saveToken(role, token) {
-      if (role === "leader") {
-        localStorage.setItem("leaderToken", token);
-        $("leaderToken").value = token;
-      } else {
-        localStorage.setItem("applicantToken", token);
-        $("applicantToken").value = token;
-      }
-    }
+      const headers = { "Content-Type": "application/json" };
+      if (storage.token) headers["Authorization"] = "Bearer " + storage.token;
 
-    function clearTokens() {
-      localStorage.removeItem("leaderToken");
-      localStorage.removeItem("applicantToken");
-      loadTokens();
-      setLog({ ok: true, message: "tokens cleared" });
-    }
-
-    function leaderAuthHeader() {
-      const t = $("leaderToken").value.trim();
-      return t ? { "Authorization": "Bearer " + t } : {};
-    }
-
-    function applicantAuthHeader() {
-      const t = $("applicantToken").value.trim();
-      return t ? { "Authorization": "Bearer " + t } : {};
-    }
-
-    async function api(method, path, body, headers) {
-      const url = baseUrl() + path;
-      const opts = {
-        method,
-        headers: Object.assign({ "Content-Type": "application/json" }, (headers || {}))
-      };
-      if (body !== undefined && body !== null) {
-        opts.body = JSON.stringify(body);
-      } else if (method === "POST" || method === "PUT") {
-        opts.body = "{}";
-      }
+      const opts = { method, headers };
+      if (body !== undefined && body !== null) opts.body = JSON.stringify(body);
 
       const res = await fetch(url, opts);
       const text = await res.text();
-      let json;
-      try { json = text ? JSON.parse(text) : null; } catch(e) { json = { raw: text }; }
 
-      if (!res.ok) {
-        setLog({ status: res.status, response: json });
-        throw new Error("HTTP " + res.status);
+      let data = text;
+      try { data = text ? JSON.parse(text) : ""; } catch (_) {}
+
+      const meta = {
+        request: { method, url, body: body ?? null },
+        response: { status: res.status, ok: res.ok, data }
+      };
+      $("outLast").textContent = pretty(meta);
+      return meta;
+    }
+
+    function fillSelect(selectEl, values, placeholder, allowEmpty) {
+      selectEl.innerHTML = "";
+
+      const first = document.createElement("option");
+      first.value = "";
+      first.textContent = placeholder || (allowEmpty ? "(수정 안 함)" : "(선택)");
+      selectEl.appendChild(first);
+
+      values.forEach(v => {
+        const opt = document.createElement("option");
+        opt.value = v;
+        opt.textContent = v;
+        selectEl.appendChild(opt);
+      });
+    }
+
+    function requireSelected(selectEl, label) {
+      if (!selectEl.value) throw new Error(label + "를 선택해주세요.");
+      return selectEl.value;
+    }
+
+    // ==========================
+    // Init
+    // ==========================
+    $("baseUrl").value = storage.baseUrl;
+    setJwtState();
+
+    // Signup
+    fillSelect($("suInstrument"), INSTRUMENTS, "instrument 선택", false);
+    fillSelect($("suLevel"), LEVELS, "level 선택", false);
+    fillSelect($("suRegion"), REGIONS, "region 선택", false);
+
+    // Profile patch (optional)
+    fillSelect($("puInstrument"), INSTRUMENTS, "(instrument 수정 안 함)", true);
+    fillSelect($("puLevel"), LEVELS, "(level 수정 안 함)", true);
+    fillSelect($("puRegion"), REGIONS, "(region 수정 안 함)", true);
+
+    // Team create/list
+    fillSelect($("ctRegion"), REGIONS, "practiceRegion 선택", false);
+    fillSelect($("ltRegion"), REGIONS, "(전체)", true);
+
+    // Position slot
+    fillSelect($("psInstrument"), INSTRUMENTS, "instrument 선택", false);
+    fillSelect($("psLevelMin"), LEVELS, "requiredLevelMin 선택", false);
+
+    // Join request status filter
+    fillSelect($("laStatus"), JOIN_REQUEST_STATUSES, "(전체)", true);
+
+    $("saveBaseUrl").addEventListener("click", () => {
+      storage.baseUrl = $("baseUrl").value.trim() || "http://localhost:8080";
+      $("baseUrl").value = storage.baseUrl;
+      alert("Base URL 저장: " + storage.baseUrl);
+    });
+
+    $("clearToken").addEventListener("click", () => {
+      storage.clearToken();
+      setJwtState();
+      alert("토큰 삭제됨");
+    });
+
+    // ==========================
+    // Auth
+    // ==========================
+    $("btnSignup").addEventListener("click", async () => {
+      try {
+        const body = {
+          email: $("suEmail").value.trim(),
+          password: $("suPassword").value,
+          name: $("suName").value.trim(),
+          instrument: requireSelected($("suInstrument"), "instrument"),
+          level: requireSelected($("suLevel"), "level"),
+          region: requireSelected($("suRegion"), "region")
+        };
+        const meta = await api("POST", "/auth/signup", body);
+        $("outSignup").textContent = pretty(meta);
+      } catch (e) {
+        $("outSignup").textContent = pretty({ error: String(e) });
       }
-      setLog({ status: res.status, response: json });
-      return json;
-    }
+    });
 
-    // ----- Actions -----
-    async function signup() {
-      const body = {
-        email: $("suEmail").value,
-        password: $("suPw").value,
-        profile: {
-          instrument: $("suInst").value,
-          level: $("suLevel").value,
-          region: $("suRegion").value
+    $("btnLogin").addEventListener("click", async () => {
+      const body = { email: $("liEmail").value.trim(), password: $("liPassword").value };
+      const meta = await api("POST", "/auth/login", body);
+      if (meta.response?.data?.accessToken) {
+        storage.token = meta.response.data.accessToken;
+        setJwtState();
+      }
+      $("outLogin").textContent = pretty(meta);
+    });
+
+    // ==========================
+    // Profile
+    // ==========================
+    $("btnGetMe").addEventListener("click", async () => {
+      const meta = await api("GET", "/profiles/me");
+      $("outProfile").textContent = pretty(meta);
+    });
+
+    $("btnPatchMe").addEventListener("click", async () => {
+      const body = {};
+      const name = $("puName").value.trim();
+      const inst = $("puInstrument").value;
+      const lvl = $("puLevel").value;
+      const reg = $("puRegion").value;
+
+      if (name) body.name = name;
+      if (inst) body.instrument = inst;
+      if (lvl) body.level = lvl;
+      if (reg) body.region = reg;
+
+      const meta = await api("PATCH", "/profiles/me", body);
+      $("outProfile").textContent = pretty(meta);
+    });
+
+    // ==========================
+    // Team
+    // ==========================
+    $("btnCreateTeam").addEventListener("click", async () => {
+      try {
+        const body = {
+          teamName: $("ctName").value.trim(),
+          practiceRegion: requireSelected($("ctRegion"), "practiceRegion"),
+          practiceNote: $("ctNote").value.trim() || null
+        };
+        const meta = await api("POST", "/teams", body);
+        $("outTeam").textContent = pretty(meta);
+
+        const tid = meta.response?.data?.teamId;
+        if (tid) {
+          $("gtTeamId").value = tid;
+          $("psTeamId").value = tid;
+          $("lsTeamId").value = tid;
+          $("apTeamId").value = tid;
+          $("laTeamId").value = tid;
         }
-      };
-      await api("POST", "/auth/signup", body);
-    }
+      } catch (e) {
+        $("outTeam").textContent = pretty({ error: String(e) });
+      }
+    });
 
-    async function login() {
-      const role = $("loginRole").value;
-      const body = { email: $("liEmail").value, password: $("liPw").value };
-      const json = await api("POST", "/auth/login", body);
-      const token = json && json.data ? json.data.accessToken : "";
-      if (token) saveToken(role, token);
-    }
+    $("btnListTeams").addEventListener("click", async () => {
+      const region = $("ltRegion").value;
+      const q = region ? ("?region=" + encodeURIComponent(region)) : "";
+      const meta = await api("GET", "/teams" + q);
+      $("outTeam").textContent = pretty(meta);
+    });
 
-    async function createTeam() {
-      const body = {
-        name: $("teamName").value,
-        intro: $("teamIntro").value,
-        goal: $("teamGoal").value,
-        practiceInfo: $("teamPractice").value
-      };
-      const json = await api("POST", "/teams", body, leaderAuthHeader());
-      const teamId = json.data.teamId;
-      $("teamId").value = teamId;
-      $("slotTeamId").value = teamId;
-      $("applyTeamId").value = teamId;
-      $("listTeamId").value = teamId;
-    }
+    $("btnGetTeam").addEventListener("click", async () => {
+      const teamId = $("gtTeamId").value;
+      const meta = await api("GET", "/teams/" + teamId);
+      $("outTeam").textContent = pretty(meta);
+    });
 
-    async function createSlot() {
-      const teamId = $("slotTeamId").value || $("teamId").value;
-      const body = {
-        instrument: $("slotInst").value,
-        capacity: Number($("slotCap").value),
-        requiredLevelMin: $("slotLevel").value
-      };
-      const json = await api("POST", `/teams/${teamId}/slots`, body, leaderAuthHeader());
-      const slotId = json.data.slotId;
-      $("slotId").value = slotId;
-      $("applySlotId").value = slotId;
-      $("listSlotId").value = slotId;
-    }
+    // ==========================
+    // PositionSlot
+    // ==========================
+    $("btnCreateSlot").addEventListener("click", async () => {
+      try {
+        const teamId = $("psTeamId").value;
+        const body = {
+          instrument: requireSelected($("psInstrument"), "instrument"),
+          capacity: Number($("psCapacity").value),
+          requiredLevelMin: requireSelected($("psLevelMin"), "requiredLevelMin")
+        };
+        const meta = await api("POST", "/teams/" + teamId + "/positions", body);
+        $("outSlot").textContent = pretty(meta);
 
-    async function apply() {
-      const teamId = $("applyTeamId").value;
-      const slotId = $("applySlotId").value;
-      const json = await api("POST", `/teams/${teamId}/slots/${slotId}/join-requests`, {}, applicantAuthHeader());
-      const joinRequestId = json.data.joinRequestId;
-      $("joinRequestId").value = joinRequestId;
-      $("cancelJoinRequestId").value = joinRequestId;
-      $("reviewJoinRequestId").value = joinRequestId;
-    }
+        const positionId = meta.response?.data;
+        if (positionId) {
+          $("apPosId").value = positionId;
+          $("laPosId").value = positionId;
+        }
+      } catch (e) {
+        $("outSlot").textContent = pretty({ error: String(e) });
+      }
+    });
 
-    async function cancel() {
-      const id = $("cancelJoinRequestId").value || $("joinRequestId").value;
-      await api("POST", `/join-requests/${id}/cancel`, {}, applicantAuthHeader());
-    }
+    $("btnListSlots").addEventListener("click", async () => {
+      const teamId = $("lsTeamId").value;
+      const meta = await api("GET", "/teams/" + teamId + "/positions");
+      $("outSlot").textContent = pretty(meta);
+    });
 
-    async function accept() {
-      const id = $("reviewJoinRequestId").value || $("joinRequestId").value;
-      await api("POST", `/join-requests/${id}/accept`, {}, leaderAuthHeader());
-    }
+    // ==========================
+    // JoinRequest
+    // ==========================
+    $("btnApply").addEventListener("click", async () => {
+      const teamId = $("apTeamId").value;
+      const posId = $("apPosId").value;
+      const meta = await api("POST", "/teams/" + teamId + "/positions/" + posId + "/join-requests");
+      $("outJoin").textContent = pretty(meta);
 
-    async function reject() {
-      const id = $("reviewJoinRequestId").value || $("joinRequestId").value;
-      await api("POST", `/join-requests/${id}/reject`, {}, leaderAuthHeader());
-    }
+      const joinId = meta.response?.data;
+      if (joinId) {
+        $("caJoinId").value = joinId;
+        $("deJoinId").value = joinId;
+      }
+    });
 
-    async function searchTeams() {
-      const params = new URLSearchParams();
-      if ($("qRegion").value.trim()) params.set("region", $("qRegion").value.trim());
-      if ($("qInst").value.trim()) params.set("instrument", $("qInst").value.trim());
-      if ($("qLevel").value) params.set("level", $("qLevel").value);
+    $("btnCancel").addEventListener("click", async () => {
+      const joinId = $("caJoinId").value;
+      const meta = await api("POST", "/join-requests/" + joinId + "/cancel");
+      $("outJoin").textContent = pretty(meta);
+    });
 
-      const qs = params.toString() ? ("?" + params.toString()) : "";
-      await api("GET", `/teams${qs}`, null, {});
-    }
+    $("btnListApplicants").addEventListener("click", async () => {
+      const teamId = $("laTeamId").value;
+      const posId = $("laPosId").value;
+      const status = $("laStatus").value;
+      const q = status ? ("?status=" + encodeURIComponent(status)) : "";
+      const meta = await api("GET", "/teams/" + teamId + "/positions/" + posId + "/join-requests" + q);
+      $("outJoin").textContent = pretty(meta);
+    });
 
-    async function myJoinRequests() {
-      const params = new URLSearchParams();
-      if ($("myStatus").value) params.set("status", $("myStatus").value);
-      const qs = params.toString() ? ("?" + params.toString()) : "";
-      await api("GET", `/me/join-requests${qs}`, null, applicantAuthHeader());
-    }
+    $("btnAccept").addEventListener("click", async () => {
+      const joinId = $("deJoinId").value;
+      const meta = await api("POST", "/join-requests/" + joinId + "/accept");
+      $("outJoin").textContent = pretty(meta);
+    });
 
-    async function listSlotRequests() {
-      const teamId = $("listTeamId").value;
-      const slotId = $("listSlotId").value;
-      const status = $("listStatus").value;
-      await api("GET", `/teams/${teamId}/slots/${slotId}/join-requests?status=${encodeURIComponent(status)}`, null, leaderAuthHeader());
-    }
-
-    // init
-    loadTokens();
+    $("btnReject").addEventListener("click", async () => {
+      const joinId = $("deJoinId").value;
+      const meta = await api("POST", "/join-requests/" + joinId + "/reject");
+      $("outJoin").textContent = pretty(meta);
+    });
 </script>
 </body>
 </html>

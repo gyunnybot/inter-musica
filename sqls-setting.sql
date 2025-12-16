@@ -1,205 +1,175 @@
+drop database inter_musica;
+
 create database inter_musica;
 
 use inter_musica;
 
--- (선택) DB 생성
--- CREATE DATABASE inter_musica CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
--- USE inter_musica;
+SET NAMES utf8mb4;
+SET time_zone = '+09:00';
 
--- =========================================
--- 1) USERS
--- =========================================
-CREATE TABLE IF NOT EXISTS users (
+-- (선택) 깨끗한 재생성용
+-- DROP TABLE 순서는 FK 역순
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS join_requests;
+DROP TABLE IF EXISTS team_members;
+DROP TABLE IF EXISTS position_slots;
+DROP TABLE IF EXISTS teams;
+DROP TABLE IF EXISTS profiles;
+DROP TABLE IF EXISTS users;
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- =========================
+-- 1) users
+-- =========================
+CREATE TABLE users (
   id BIGINT NOT NULL AUTO_INCREMENT,
-  email VARCHAR(320) NOT NULL,
+  email VARCHAR(190) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uk_users_email (email)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- =========================================
--- 2) PROFILES (User 1:1, PK=FK)
--- =========================================
-CREATE TABLE IF NOT EXISTS profiles (
-  user_id BIGINT NOT NULL,
-  instrument VARCHAR(64) NOT NULL,
-  level VARCHAR(64) NOT NULL,
-  region VARCHAR(64) NOT NULL,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+-- =========================
+-- 2) profiles (PK=FK to users.id)
+--  - code: ProfileJpaEntity @MapsId + @OneToOne join on profile_id
+-- =========================
+CREATE TABLE profiles (
+  profile_id BIGINT NOT NULL,               -- == users.id (AUTO_INCREMENT 금지)
+  name VARCHAR(50) NOT NULL,
+  instrument VARCHAR(30) NOT NULL,           -- DB는 VARCHAR (A안)
+  level INT NOT NULL,
+  region VARCHAR(30) NOT NULL,               -- DB는 VARCHAR (A안)
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (profile_id),
+  KEY idx_profiles_instrument (instrument),
+  KEY idx_profiles_region (region),
+  CONSTRAINT fk_profiles_user
+    FOREIGN KEY (profile_id) REFERENCES users(id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-  PRIMARY KEY (user_id),
-
-  CONSTRAINT fk_profiles_user_id
-    FOREIGN KEY (user_id) REFERENCES users(id)
-    ON DELETE CASCADE,
-
-  CONSTRAINT chk_profiles_level
-    CHECK (level IN (
-      'HOBBY_UNDER_A_YEAR',
-      'HOBBY_UNDER_FIVE_YEAR',
-      'HOBBY_OVER_FIVE_YEAR',
-      'MAJOR_STUDENT'
-    ))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- =========================================
--- 3) TEAMS
--- =========================================
-CREATE TABLE IF NOT EXISTS teams (
+-- =========================
+-- 3) teams
+--  - code: TeamJpaEntity (leader_user_id is Long, no FK entity mapping)
+-- =========================
+CREATE TABLE teams (
   id BIGINT NOT NULL AUTO_INCREMENT,
   leader_user_id BIGINT NOT NULL,
-  name VARCHAR(100) NOT NULL,
-  intro VARCHAR(255) NOT NULL,
-  goal VARCHAR(255) NOT NULL,
-  practice_info VARCHAR(255) NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
+  team_name VARCHAR(80) NOT NULL,
+  practice_region VARCHAR(30) NOT NULL,      -- DB는 VARCHAR (A안)
+  practice_note TEXT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_teams_leader_user_id (leader_user_id),
-
-  CONSTRAINT fk_teams_leader_user_id
+  KEY idx_teams_practice_region (practice_region),
+  CONSTRAINT fk_teams_leader_user
     FOREIGN KEY (leader_user_id) REFERENCES users(id)
     ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- =========================================
--- 4) SLOTS
--- =========================================
-CREATE TABLE IF NOT EXISTS slots (
+-- =========================
+-- 4) position_slots
+--  - 중요: (team_id, id)에 UNIQUE가 있어야 join_requests 복합 FK가 생성됨
+-- =========================
+CREATE TABLE position_slots (
   id BIGINT NOT NULL AUTO_INCREMENT,
   team_id BIGINT NOT NULL,
-  instrument VARCHAR(64) NOT NULL,
+  instrument VARCHAR(30) NOT NULL,           -- DB는 VARCHAR (A안)
   capacity INT NOT NULL,
-  required_level_min VARCHAR(64) NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
+  required_level_min INT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  KEY idx_slots_team_id (team_id),
-  KEY idx_slots_instrument (instrument),
+  KEY idx_position_slots_team_id (team_id),
+  KEY idx_position_slots_team_instrument (team_id, instrument),
 
-  CONSTRAINT fk_slots_team_id
+  -- 복합 FK 타겟을 위해 필수 (MySQL 규칙)
+  UNIQUE KEY uk_position_slots_team_id_id (team_id, id),
+
+  CONSTRAINT fk_position_slots_team
+    FOREIGN KEY (team_id) REFERENCES teams(id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- =========================
+-- 5) team_members
+--  - code: TeamMemberJpaEntity with unique(team_id, user_id)
+-- =========================
+CREATE TABLE team_members (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  team_id BIGINT NOT NULL,
+  user_id BIGINT NOT NULL,
+  joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+
+  UNIQUE KEY uk_team_members_team_user (team_id, user_id),
+  KEY idx_team_members_user_id (user_id),
+
+  CONSTRAINT fk_team_members_team
     FOREIGN KEY (team_id) REFERENCES teams(id)
     ON DELETE CASCADE,
+  CONSTRAINT fk_team_members_user
+    FOREIGN KEY (user_id) REFERENCES users(id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-  CONSTRAINT chk_slots_capacity
-    CHECK (capacity >= 1),
-
-  CONSTRAINT chk_slots_required_level_min
-    CHECK (required_level_min IN (
-      'HOBBY_UNDER_A_YEAR',
-      'HOBBY_UNDER_FIVE_YEAR',
-      'HOBBY_OVER_FIVE_YEAR',
-      'MAJOR_STUDENT'
-    ))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- =========================================
--- 5) JOIN_REQUESTS
---   - 같은 slot_id + applicant_user_id 에서 APPLIED 중복 방지
---     (MySQL에서는 부분 유니크가 없으므로 Generated Column로 구현)
--- =========================================
-CREATE TABLE IF NOT EXISTS join_requests (
+-- =========================
+-- 6) join_requests
+--  - code: JoinRequestJpaEntity
+--    columns: team_id, position_slot_id, applicant_user_id, status(enum), created_at, updated_at
+--  - 핵심:
+--    (team_id, position_slot_id) -> position_slots(team_id, id) 복합 FK
+--    이걸 위해 position_slots에 UNIQUE(team_id, id)가 있어야 함
+-- =========================
+CREATE TABLE join_requests (
   id BIGINT NOT NULL AUTO_INCREMENT,
+
   team_id BIGINT NOT NULL,
-  slot_id BIGINT NOT NULL,
+  position_slot_id BIGINT NOT NULL,
   applicant_user_id BIGINT NOT NULL,
 
-  status VARCHAR(32) NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  decided_at DATETIME NULL,
-  decided_by_user_id BIGINT NULL,
+  status ENUM('APPLIED','ACCEPTED','REJECTED','CANCELED') NOT NULL,
 
-  -- status='APPLIED'일 때만 1, 아니면 NULL (UNIQUE가 NULL은 중복 허용)
-  applied_uniq TINYINT GENERATED ALWAYS AS (
-    CASE WHEN status = 'APPLIED' THEN 1 ELSE NULL END
-  ) STORED,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
   PRIMARY KEY (id),
 
-  KEY idx_join_requests_team_id (team_id),
-  KEY idx_join_requests_slot_id (slot_id),
-  KEY idx_join_requests_applicant_user_id (applicant_user_id),
-  KEY idx_join_requests_status (status),
+  -- 서비스/리포지토리 쿼리 최적화용 인덱스들
+  KEY idx_join_requests_team_position (team_id, position_slot_id),
+  KEY idx_join_requests_position_status (position_slot_id, status),
+  KEY idx_join_requests_applicant_status (applicant_user_id, status),
+  KEY idx_join_requests_team_position_applicant_status (team_id, position_slot_id, applicant_user_id, status),
 
-  -- 같은 슬롯에 "진행중(APPLIED)" 지원은 1개만 허용
-  UNIQUE KEY uk_join_requests_applied_once (slot_id, applicant_user_id, applied_uniq),
-
-  CONSTRAINT fk_join_requests_team_id
+  -- 1) 팀 삭제 시 join_requests도 함께 삭제되도록 (CASCADE)
+  CONSTRAINT fk_join_requests_team
     FOREIGN KEY (team_id) REFERENCES teams(id)
     ON DELETE CASCADE,
 
-  CONSTRAINT fk_join_requests_slot_id
-    FOREIGN KEY (slot_id) REFERENCES slots(id)
-    ON DELETE CASCADE,
-
-  CONSTRAINT fk_join_requests_applicant_user_id
+  -- 2) 지원자(user) 삭제 시 join_requests도 함께 삭제 (CASCADE)
+  CONSTRAINT fk_join_requests_applicant_user
     FOREIGN KEY (applicant_user_id) REFERENCES users(id)
     ON DELETE CASCADE,
 
-  CONSTRAINT fk_join_requests_decided_by_user_id
-    FOREIGN KEY (decided_by_user_id) REFERENCES users(id)
-    ON DELETE SET NULL,
+  -- 3) team_id와 position_slot_id의 "소속 일치"를 DB가 보장하는 복합 FK
+  --    (team_id, position_slot_id) 가 position_slots(team_id, id)에 존재해야만 insert 가능
+  CONSTRAINT fk_join_requests_team_position_slot
+    FOREIGN KEY (team_id, position_slot_id)
+    REFERENCES position_slots(team_id, id)
+    ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-  CONSTRAINT chk_join_requests_status
-    CHECK (status IN ('APPLIED', 'ACCEPTED', 'REJECTED', 'CANCELED'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+ALTER TABLE profiles
+  MODIFY COLUMN level VARCHAR(30) NOT NULL;
 
--- =========================================
--- 6) TEAM_MEMBERS
---   - "동시에 한 팀만 소속" 정책: ACTIVE 멤버십을 user_id 기준 1개로 제한
---     (Generated Column + UNIQUE)
--- =========================================
-CREATE TABLE IF NOT EXISTS team_members (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  team_id BIGINT NOT NULL,
-  user_id BIGINT NOT NULL,
-  slot_id BIGINT NOT NULL,
-
-  status VARCHAR(16) NOT NULL,
-  joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  left_at DATETIME NULL,
-
-  -- status='ACTIVE'일 때만 1, 아니면 NULL (UNIQUE가 NULL은 중복 허용)
-  active_uniq TINYINT GENERATED ALWAYS AS (
-    CASE WHEN status = 'ACTIVE' THEN 1 ELSE NULL END
-  ) STORED,
-
-  PRIMARY KEY (id),
-
-  KEY idx_team_members_team_id (team_id),
-  KEY idx_team_members_user_id (user_id),
-  KEY idx_team_members_slot_id (slot_id),
-  KEY idx_team_members_status (status),
-
-  -- ACTIVE 멤버십은 user_id 기준 1개만 허용
-  UNIQUE KEY uk_team_members_one_active_per_user (user_id, active_uniq),
-
-  CONSTRAINT fk_team_members_team_id
-    FOREIGN KEY (team_id) REFERENCES teams(id)
-    ON DELETE CASCADE,
-
-  CONSTRAINT fk_team_members_user_id
-    FOREIGN KEY (user_id) REFERENCES users(id)
-    ON DELETE CASCADE,
-
-  CONSTRAINT fk_team_members_slot_id
-    FOREIGN KEY (slot_id) REFERENCES slots(id)
-    ON DELETE CASCADE,
-
-  CONSTRAINT chk_team_members_status
-    CHECK (status IN ('ACTIVE', 'LEFT'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
+ALTER TABLE position_slots
+  MODIFY COLUMN required_level_min VARCHAR(30) NOT NULL;
+  
 show tables;
 
 select * from join_requests;
+select * from position_slots;
 select * from profiles;
-select * from slots;
 select * from team_members;
 select * from teams;
 select * from users;
