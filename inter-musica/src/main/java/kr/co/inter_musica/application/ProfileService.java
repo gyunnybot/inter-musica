@@ -5,8 +5,8 @@ import kr.co.inter_musica.domain.enums.Level;
 import kr.co.inter_musica.domain.enums.Region;
 import kr.co.inter_musica.infrastructure.persistence.entity.ProfileJpaEntity;
 import kr.co.inter_musica.infrastructure.persistence.jpa.ProfileJpaRepository;
-import kr.co.inter_musica.presentation.exception.ApiException;
-import kr.co.inter_musica.presentation.exception.ErrorCode;
+import kr.co.inter_musica.domain.exception.ApiException;
+import kr.co.inter_musica.domain.enums.ErrorCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

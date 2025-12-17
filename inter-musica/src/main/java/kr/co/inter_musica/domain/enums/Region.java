@@ -10,8 +10,10 @@ public enum Region {
     SEOUL_SEOUL_FOREST;
 
     public static Region from(String raw) {
-        if (raw == null) throw new IllegalArgumentException("region is null");
+        if (raw == null) throw new IllegalArgumentException("지역 선택은 필수입니다.");
+
         String v = raw.trim().toUpperCase(Locale.ROOT);
+
         return Region.valueOf(v);
     }
 }

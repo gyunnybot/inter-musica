@@ -1,12 +1,19 @@
 package kr.co.inter_musica.presentation.dto.profile;
 
+import jakarta.validation.constraints.NotBlank;
+
 public class ProfileUpdateRequest {
 
+    @NotBlank
     private String name;
+
+    @NotBlank
     private String instrument;
 
+    @NotBlank
     private String level;
 
+    @NotBlank
     private String region;
 
     public ProfileUpdateRequest() {}

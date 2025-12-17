@@ -6,8 +6,8 @@ import kr.co.inter_musica.infrastructure.persistence.entity.PositionSlotJpaEntit
 import kr.co.inter_musica.infrastructure.persistence.entity.TeamJpaEntity;
 import kr.co.inter_musica.infrastructure.persistence.jpa.PositionSlotJpaRepository;
 import kr.co.inter_musica.infrastructure.persistence.jpa.TeamJpaRepository;
-import kr.co.inter_musica.presentation.exception.ApiException;
-import kr.co.inter_musica.presentation.exception.ErrorCode;
+import kr.co.inter_musica.domain.exception.ApiException;
+import kr.co.inter_musica.domain.enums.ErrorCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

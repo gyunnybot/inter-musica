@@ -9,24 +9,24 @@ public class ProfileJpaEntity {
 
     @Id
     @Column(name = "profile_id")
-    private Long profileId; // == users.id
+    private Long profileId; // non auto-increment
 
     @MapsId
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "profile_id")
-    private UserJpaEntity user;
+    private UserJpaEntity user; // profile_id 에 해당하는 user
 
     @Column(nullable = false, length = 50)
     private String name;
 
     @Column(nullable = false, length = 30)
-    private String instrument; // "VOCAL" ...
+    private String instrument;
 
     @Column(nullable = false, length = 30)
     private String level;
 
     @Column(nullable = false, length = 30)
-    private String region; // "SEOUL" ...
+    private String region;
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;

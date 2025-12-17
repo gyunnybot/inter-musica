@@ -15,7 +15,7 @@ public class PositionSlotJpaEntity {
     private Long teamId;
 
     @Column(nullable = false, length = 30)
-    private String instrument; // "VOCAL" ...
+    private String instrument;
 
     @Column(nullable = false)
     private int capacity;

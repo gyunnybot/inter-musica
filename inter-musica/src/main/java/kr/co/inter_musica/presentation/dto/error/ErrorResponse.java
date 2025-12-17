@@ -1,10 +1,12 @@
-package kr.co.inter_musica.presentation.exception;
+package kr.co.inter_musica.presentation.dto.error;
+
+import kr.co.inter_musica.domain.enums.ErrorCode;
 
 import java.time.Instant;
 
 public class ErrorResponse {
 
-    private String code;
+    private String errorCode;
     private String message;
     private String path;
     private Instant timestamp;
@@ -12,23 +14,23 @@ public class ErrorResponse {
     public ErrorResponse() {
     }
 
-    public ErrorResponse(String code, String message, String path, Instant timestamp) {
-        this.code = code;
+    public ErrorResponse(String errorCode, String message, String path, Instant timestamp) {
+        this.errorCode = errorCode;
         this.message = message;
         this.path = path;
         this.timestamp = timestamp;
     }
 
     public static ErrorResponse of(ErrorCode errorCode, String message, String path) {
-        return new ErrorResponse(errorCode.code(), message, path, Instant.now());
+        return new ErrorResponse(errorCode.getMessage(), message, path, Instant.now());
     }
 
-    public String getCode() {
-        return code;
+    public String getErrorCode() {
+        return errorCode;
     }
 
-    public void setCode(String code) {
-        this.code = code;
+    public void setErrorCode(String errorCode) {
+        this.errorCode = errorCode;
     }
 
     public String getMessage() {

@@ -3,6 +3,7 @@ package kr.co.inter_musica.infrastructure.persistence.entity;
 import jakarta.persistence.*;
 import java.time.Instant;
 
+// @UniqueConstraint : 같은 팀에 같은 유저가 중복되는 상황 방지
 @Entity
 @Table(name = "team_members",
         uniqueConstraints = @UniqueConstraint(name="uk_team_members_team_user", columnNames = {"team_id","user_id"}))

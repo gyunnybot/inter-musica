@@ -15,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+// 보안 규칙 설정, 필터 체인 구성
 @Configuration
 public class SecurityConfig {
 
@@ -30,11 +31,11 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http, JwtTokenProvider jwtTokenProvider) throws Exception {
 
         http
-                .csrf(csrf -> csrf.disable())
-                .cors(Customizer.withDefaults())
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .csrf(csrf -> csrf.disable()) // csrf 끄기
+                .cors(Customizer.withDefaults()) // cors 설정
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 세션 끄기
 
-                // formLogin / httpBasic 끄기 (JWT 방식이면 보통 비활성)
+                // 폼 로그인 / httpBasic 끄기 (JWT 방식이므로)
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
 
@@ -45,7 +46,7 @@ public class SecurityConfig {
                         .requestMatchers("/auth/signup", "/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/health").permitAll()
                         .anyRequest().authenticated()
-                )
+                ) // 토큰 없이도 접근 가능한 url 등록 (화이트리스트)
 
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider),
                         UsernamePasswordAuthenticationFilter.class);
@@ -55,6 +56,6 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        return new BCryptPasswordEncoder(); // for password_hash
     }
 }

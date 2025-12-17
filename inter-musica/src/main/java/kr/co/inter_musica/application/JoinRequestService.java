@@ -1,11 +1,11 @@
 package kr.co.inter_musica.application;
 
-import kr.co.inter_musica.domain.policy.JoinRequestPolicy;
+import kr.co.inter_musica.domain.joinrequest.JoinRequestPolicy;
 import kr.co.inter_musica.domain.enums.JoinRequestStatus;
 import kr.co.inter_musica.infrastructure.persistence.entity.*;
 import kr.co.inter_musica.infrastructure.persistence.jpa.*;
-import kr.co.inter_musica.presentation.exception.ApiException;
-import kr.co.inter_musica.presentation.exception.ErrorCode;
+import kr.co.inter_musica.domain.exception.ApiException;
+import kr.co.inter_musica.domain.enums.ErrorCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

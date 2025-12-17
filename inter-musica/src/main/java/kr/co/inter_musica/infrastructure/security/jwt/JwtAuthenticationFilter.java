@@ -14,6 +14,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.List;
 
+// 컨트롤러 진입 이전에 필터링. http 요청 내에 토큰을 꺼내서 SecurityContext 채우기
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
@@ -27,16 +28,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String auth = request.getHeader(HttpHeaders.AUTHORIZATION);
+
         if (auth != null && auth.startsWith("Bearer ")) {
-            String token = auth.substring(7);
+            String token = auth.substring("Bearer ".length()); // 생성된 토큰 꺼내기
+
             if (tokenProvider.isValid(token)) {
                 Claims claims = tokenProvider.parseClaims(token);
-                String userId = claims.getSubject(); // subject = userId
+                String userId = claims.getSubject(); // .subject 의 인자로 userId 가 들어감 (JwtTokenProvider)
 
-                // 최소 골격: ROLE_USER만 부여
                 var authorities = List.of(new SimpleGrantedAuthority("ROLE_USER"));
 
                 var authentication = new UsernamePasswordAuthenticationToken(userId, null, authorities);
+
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         }

@@ -1,7 +1,7 @@
-package kr.co.inter_musica.presentation.security;
+package kr.co.inter_musica.domain.security;
 
-import kr.co.inter_musica.presentation.exception.ApiException;
-import kr.co.inter_musica.presentation.exception.ErrorCode;
+import kr.co.inter_musica.domain.exception.ApiException;
+import kr.co.inter_musica.domain.enums.ErrorCode;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -19,7 +19,6 @@ public class SecurityUtil {
 
         Object principal = auth.getPrincipal();
 
-        // JwtAuthenticationFilter에서 subject(userId)를 String으로 넣었으니 여기서 파싱
         try {
             return Long.parseLong(String.valueOf(principal));
         } catch (NumberFormatException e) {

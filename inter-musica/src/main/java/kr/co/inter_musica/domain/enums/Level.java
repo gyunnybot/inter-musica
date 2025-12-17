@@ -10,13 +10,15 @@ public enum Level {
 
     public static Level from(String raw) {
         if (raw == null) {
-            throw new IllegalArgumentException("level is null");
+            throw new IllegalArgumentException("레벨 선택은 필수입니다.");
         }
 
         String v = raw.trim().toUpperCase(Locale.ROOT);
+
         return Level.valueOf(v);
     }
 
+    // 자동으로 오름차순 기준으로 수준 비교
     public boolean isAtLeast(Level requiredMin) {
         return this.ordinal() >= requiredMin.ordinal();
     }

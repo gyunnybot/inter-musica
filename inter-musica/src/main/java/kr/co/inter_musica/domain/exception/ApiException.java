@@ -1,4 +1,6 @@
-package kr.co.inter_musica.presentation.exception;
+package kr.co.inter_musica.domain.exception;
+
+import kr.co.inter_musica.domain.enums.ErrorCode;
 
 public class ApiException extends RuntimeException {
     private final ErrorCode errorCode;
@@ -8,5 +10,5 @@ public class ApiException extends RuntimeException {
         this.errorCode = errorCode;
     }
 
-    public ErrorCode errorCode() { return errorCode; }
+    public ErrorCode getErrorCode() { return errorCode; }
 }

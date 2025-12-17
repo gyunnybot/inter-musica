@@ -1,9 +1,9 @@
-package kr.co.inter_musica.domain.policy;
+package kr.co.inter_musica.domain.joinrequest;
 
 import kr.co.inter_musica.domain.enums.JoinRequestStatus;
 import kr.co.inter_musica.domain.enums.Level;
-import kr.co.inter_musica.presentation.exception.ApiException;
-import kr.co.inter_musica.presentation.exception.ErrorCode;
+import kr.co.inter_musica.domain.exception.ApiException;
+import kr.co.inter_musica.domain.enums.ErrorCode;
 
 public class JoinRequestPolicy {
     public void validateRegionMatch(String profileRegion, String teamPracticeRegion) {
@@ -27,12 +27,14 @@ public class JoinRequestPolicy {
         }
     }
 
+    // 지원자 : 취소
     public void ensureCancelable(JoinRequestStatus status) {
         if (status != JoinRequestStatus.APPLIED) {
             throw new ApiException(ErrorCode.JOIN_REQUEST_CANNOT_CANCEL_NOT_APPLIED, "APPLIED 상태에서만 취소할 수 있습니다.");
         }
     }
 
+    // 팀장 : 수락/거절
     public void ensureDecidable(JoinRequestStatus status) {
         if (status != JoinRequestStatus.APPLIED) {
             throw new ApiException(ErrorCode.JOIN_REQUEST_CANNOT_DECIDE_NOT_APPLIED, "APPLIED 상태에서만 수락/거절할 수 있습니다.");
