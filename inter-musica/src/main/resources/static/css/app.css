@@ -1,0 +1,13 @@
+/* /css/app.css */
+:root { --im-card-radius: 16px; }
+
+.card { border-radius: var(--im-card-radius); }
+.btn, .form-control, .form-select { border-radius: 12px; }
+.badge { border-radius: 999px; }
+
+.page-title {
+  letter-spacing: -0.02em;
+}
+
+.muted { color: #6c757d; }
+.small-help { font-size: 0.9rem; color: #6c757d; }
