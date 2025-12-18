@@ -29,7 +29,7 @@ public class JoinRequestController {
     ) {
         long userId = SecurityUtil.currentUserId();
 
-        Long joinRequestId = joinService.apply(userId, teamId, positionId);
+        Long joinRequestId = joinService.applyJoinRequest(userId, teamId, positionId);
 
         return ResponseEntity.ok(joinRequestId);
     }
@@ -41,7 +41,7 @@ public class JoinRequestController {
     ) {
         long userId = SecurityUtil.currentUserId();
 
-        joinService.cancel(userId, joinRequestId);
+        joinService.cancelJoinRequest(userId, joinRequestId);
 
         return ResponseEntity.ok().build();
     }
@@ -55,7 +55,7 @@ public class JoinRequestController {
     ) {
         long userId = SecurityUtil.currentUserId();
 
-        List<JoinRequestJpaEntity> list = joinService.listApplicants(userId, teamId, positionId, joinRequestStatus);
+        List<JoinRequestJpaEntity> list = joinService.getApplicantList(userId, teamId, positionId, joinRequestStatus);
 
         List<JoinRequestResponse> responseList = list.stream()
                 .map(applicants -> new JoinRequestResponse(
@@ -80,7 +80,7 @@ public class JoinRequestController {
     ) {
         long userId = SecurityUtil.currentUserId();
 
-        joinService.accept(userId, joinRequestId);
+        joinService.acceptJoinRequest(userId, joinRequestId);
 
         return ResponseEntity.ok().build();
     }
@@ -92,7 +92,7 @@ public class JoinRequestController {
     ) {
         long userId = SecurityUtil.currentUserId();
 
-        joinService.reject(userId, joinRequestId);
+        joinService.rejectJoinRequest(userId, joinRequestId);
 
         return ResponseEntity.ok().build();
     }

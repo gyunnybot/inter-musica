@@ -46,7 +46,7 @@ public class TeamController {
     public ResponseEntity<List<TeamSummaryResponse>> getTeamList(
             @RequestParam(required = false) String region
     ) {
-        List<TeamJpaEntity> list = teamService.listTeams(region);
+        List<TeamJpaEntity> list = teamService.getTeamList(region);
 
         List<TeamSummaryResponse> responseList = list.stream()
                 .map(team -> new TeamSummaryResponse(
@@ -67,7 +67,7 @@ public class TeamController {
     public ResponseEntity<TeamSummaryResponse> findTeamById(
             @PathVariable Long teamId
     ) {
-        TeamJpaEntity team = teamService.getTeam(teamId);
+        TeamJpaEntity team = teamService.findTeamById(teamId);
 
         if (team == null) {
             throw new ApiException(ErrorCode.TEAM_NOT_FOUND, "팀을 찾을 수 없습니다.");

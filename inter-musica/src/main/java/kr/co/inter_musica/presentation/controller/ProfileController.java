@@ -25,7 +25,7 @@ public class ProfileController {
     public ResponseEntity<ProfileResponse> getProfile() {
         long userId = SecurityUtil.currentUserId();
 
-        ProfileJpaEntity profile = profileService.getMe(userId);
+        ProfileJpaEntity profile = profileService.getProfile(userId);
 
         ProfileResponse profileResponse = new ProfileResponse(
                 profile.getProfileId(),
@@ -45,7 +45,7 @@ public class ProfileController {
     ) {
         long userId = SecurityUtil.currentUserId();
 
-        profileService.updateMe(
+        profileService.updateProfile(
                 userId,
                 profileUpdateRequest.getName(),
                 profileUpdateRequest.getInstrument(),

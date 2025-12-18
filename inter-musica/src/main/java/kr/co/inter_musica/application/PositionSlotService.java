@@ -8,6 +8,7 @@ import kr.co.inter_musica.infrastructure.persistence.jpa.PositionSlotJpaReposito
 import kr.co.inter_musica.infrastructure.persistence.jpa.TeamJpaRepository;
 import kr.co.inter_musica.domain.exception.ApiException;
 import kr.co.inter_musica.domain.enums.ErrorCode;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,17 +17,18 @@ import java.util.List;
 @Service
 public class PositionSlotService {
 
-    private final TeamJpaRepository teamRepo;
-    private final PositionSlotJpaRepository positionRepo;
+    private final TeamJpaRepository teamJpaRepository;
+    private final PositionSlotJpaRepository positionSlotJpaRepository;
 
-    public PositionSlotService(TeamJpaRepository teamRepo, PositionSlotJpaRepository positionRepo) {
-        this.teamRepo = teamRepo;
-        this.positionRepo = positionRepo;
+    @Autowired
+    public PositionSlotService(TeamJpaRepository teamJpaRepository, PositionSlotJpaRepository positionSlotJpaRepository) {
+        this.teamJpaRepository = teamJpaRepository;
+        this.positionSlotJpaRepository = positionSlotJpaRepository;
     }
 
     @Transactional
-    public Long createSlot(long currentUserId, Long teamId, String instrumentRaw, int capacity, String requiredLevelMinRaw) {
-        TeamJpaEntity team = teamRepo.findById(teamId)
+    public Long createPositionSlot(long currentUserId, Long teamId, String instrumentRaw, int capacity, String requiredLevelMinRaw) {
+        TeamJpaEntity team = teamJpaRepository.findById(teamId)
                 .orElseThrow(() -> new ApiException(ErrorCode.TEAM_NOT_FOUND, "팀을 찾을 수 없습니다."));
 
         if (!team.getLeaderUserId().equals(currentUserId)) {
@@ -35,17 +37,19 @@ public class PositionSlotService {
 
         String instrument = Instrument.from(instrumentRaw).name();
         String required = Level.from(requiredLevelMinRaw).name();
+
         PositionSlotJpaEntity slot = new PositionSlotJpaEntity(teamId, instrument, capacity, required);
-        positionRepo.save(slot);
+        positionSlotJpaRepository.save(slot);
+
         return slot.getId();
     }
 
     @Transactional(readOnly = true)
-    public List<PositionSlotJpaEntity> listSlots(Long teamId) {
-        // team 존재 검사(선택이지만 UX상 좋음)
-        if (!teamRepo.existsById(teamId)) {
+    public List<PositionSlotJpaEntity> getPositionSlotList(Long teamId) {
+        if (!teamJpaRepository.existsById(teamId)) {
             throw new ApiException(ErrorCode.TEAM_NOT_FOUND, "팀을 찾을 수 없습니다.");
         }
-        return positionRepo.findByTeamId(teamId);
+
+        return positionSlotJpaRepository.findByTeamId(teamId);
     }
 }

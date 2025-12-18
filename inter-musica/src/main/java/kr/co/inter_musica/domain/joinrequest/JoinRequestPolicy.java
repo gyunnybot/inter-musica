@@ -41,6 +41,7 @@ public class JoinRequestPolicy {
         }
     }
 
+    // service layer : 포지션 슬롯 검증
     public void ensureCapacityAvailable(long acceptedCount, int capacity) {
         if (acceptedCount >= capacity) {
             throw new ApiException(ErrorCode.POSITION_CAPACITY_FULL, "정원이 가득 찼습니다.");

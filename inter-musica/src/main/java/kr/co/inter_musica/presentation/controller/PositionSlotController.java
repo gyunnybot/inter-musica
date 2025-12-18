@@ -31,7 +31,7 @@ public class PositionSlotController {
     ) {
         long userId = SecurityUtil.currentUserId();
 
-        Long positionId = positionService.createSlot(
+        Long positionId = positionService.createPositionSlot(
                 userId,
                 teamId,
                 createPositionSlotRequest.getInstrument(),
@@ -47,7 +47,7 @@ public class PositionSlotController {
     public ResponseEntity<List<PositionSlotResponse>> getPositionSlotList(
             @PathVariable Long teamId
     ) {
-        List<PositionSlotJpaEntity> list = positionService.listSlots(teamId);
+        List<PositionSlotJpaEntity> list = positionService.getPositionSlotList(teamId);
 
         List<PositionSlotResponse> responseList = list.stream()
                 .map(position -> new PositionSlotResponse(

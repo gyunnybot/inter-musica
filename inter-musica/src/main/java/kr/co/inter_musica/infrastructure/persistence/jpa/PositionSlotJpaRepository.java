@@ -14,6 +14,6 @@ public interface PositionSlotJpaRepository extends JpaRepository<PositionSlotJpa
     List<PositionSlotJpaEntity> findByTeamId(Long teamId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select p from PositionSlotJpaEntity p where p.id = :id") // 메서드 실행 쿼리 고정 (메서드명으로 유추 방지)
+    @Query("select p from PositionSlotJpaEntity p where p.id = :id") // 메서드 실행 쿼리 고정 (jpa 가 메서드명으로 유추 방지)
     Optional<PositionSlotJpaEntity> findByIdForUpdate(@Param("id") Long id);
 }
