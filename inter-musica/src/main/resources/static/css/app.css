@@ -11,3 +11,13 @@
 
 .muted { color: #6c757d; }
 .small-help { font-size: 0.9rem; color: #6c757d; }
+
+/* 링크처럼 보이는 버튼 */
+.im-linklike { text-decoration: none; }
+.im-linklike:hover { text-decoration: underline; }
+
+/* 남은 슬롯 시각화 */
+.im-progress-sm { height: 10px; }
+
+/* 카드가 너무 빡빡해 보이지 않게 */
+.im-flat-card { border: 1px solid rgba(0,0,0,.08); }
