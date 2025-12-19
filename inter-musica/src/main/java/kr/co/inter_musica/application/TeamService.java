@@ -31,6 +31,13 @@ public class TeamService {
         TeamJpaEntity team = new TeamJpaEntity(leaderUserId, teamName, practiceRegion, practiceNote);
         teamJpaRepository.save(team);
 
+        // 팀장도 팀에 포함
+        teamMemberJpaRepository.save(new TeamMemberJpaEntity(
+                    team.getId(),
+                    leaderUserId
+                )
+        );
+
         return team.getId();
     }
 
