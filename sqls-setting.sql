@@ -38,7 +38,7 @@ CREATE TABLE profiles (
   profile_id BIGINT NOT NULL,               -- == users.id (AUTO_INCREMENT 금지)
   name VARCHAR(50) NOT NULL,
   instrument VARCHAR(30) NOT NULL,           -- DB는 VARCHAR (A안)
-  level INT NOT NULL,
+  level VARCHAR(30) NOT NULL,
   region VARCHAR(30) NOT NULL,               -- DB는 VARCHAR (A안)
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (profile_id),
@@ -77,7 +77,7 @@ CREATE TABLE position_slots (
   team_id BIGINT NOT NULL,
   instrument VARCHAR(30) NOT NULL,           -- DB는 VARCHAR (A안)
   capacity INT NOT NULL,
-  required_level_min INT NOT NULL,
+  required_level_min VARCHAR(30) NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_position_slots_team_id (team_id),
@@ -158,12 +158,6 @@ CREATE TABLE join_requests (
     REFERENCES position_slots(team_id, id)
     ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-ALTER TABLE profiles
-  MODIFY COLUMN level VARCHAR(30) NOT NULL;
-
-ALTER TABLE position_slots
-  MODIFY COLUMN required_level_min VARCHAR(30) NOT NULL;
   
 show tables;
 
