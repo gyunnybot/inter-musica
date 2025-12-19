@@ -62,6 +62,10 @@
     positionStatsByTeamId: Object.create(null)
   };
 
+  function asArray(v) {
+    return Array.isArray(v) ? v : [];
+  }
+
   function h(tag, attrs = {}, children = []) {
     const el = document.createElement(tag);
     Object.entries(attrs).forEach(([k, v]) => {
@@ -194,7 +198,6 @@
             <option value="">전체</option>
             ${ENUMS.region.map(r => `<option value="${r}">${fmtEnum("region", r)}</option>`).join("")}
           </select>
-          <div class="small-help mt-2">practiceRegion은 문자열이지만, 기본값으로 Region enum 옵션을 제공해요.</div>
         </div>
         <div class="col-lg-8 d-flex align-items-end">
           <button class="btn btn-dark" id="btnSearch"><i class="bi bi-funnel me-1"></i>조회</button>
@@ -239,12 +242,15 @@
     const countEl = document.getElementById("teamCount");
     rows.innerHTML = `<tr><td colspan="6" class="muted">불러오는 중...</td></tr>`;
 
+    if (!rows || !countEl) return;
+
     const qs = region ? ("?region=" + encodeURIComponent(region)) : "";
-    const list = await IM.apiFetch("/teams" + qs, { auth: true });
+    const raw = await IM.apiFetch("/teams" + qs, { auth: true });
+    const list = asArray(raw);
 
     countEl.textContent = `${list.length}개`;
     if (!list.length) {
-      rows.innerHTML = `<tr><td colspan="6" class="muted">등록된 팀이 없습니다.</td></tr>`;
+      rows.innerHTML = `<tr><td colspan="6" class="muted">아직 생성된 팀이 없습니다.</td></tr>`;
       return;
     }
 
@@ -543,75 +549,114 @@
   }
 
   async function viewMyTeam() {
-    if (!requireAuth()) return;
-
-    renderShell("내 팀", `
-      <div class="card">
-        <div class="card-body">
-          <div class="muted">불러오는 중...</div>
-        </div>
-      </div>
-    `);
-
-    await ensureMe();
-
-    try {
-      // ✅ 백엔드가 제공해야 하는 엔드포인트(권장)
-      // GET /teams/me  -> { id, teamName, leaderUserId, practiceRegion, practiceNote, createdAt }
-      const team = await IM.apiFetch("/teams/me", { auth: true, silent: true });
+      if (!requireAuth()) return;
 
       renderShell("내 팀", `
-        <div class="row g-3">
-          <div class="col-lg-7">
-            <div class="card">
-              <div class="card-body">
-                <div class="fw-semibold mb-2">${IM.escapeHtml(team.teamName || "(이름 없음)")}</div>
-                <div class="mb-1"><span class="muted">연습 지역</span> : ${IM.escapeHtml(fmtEnum("region", team.practiceRegion) || team.practiceRegion || "-")}</div>
-                <div class="mb-1"><span class="muted">팀장</span> : userId ${IM.escapeHtml(team.leaderUserId)}</div>
-                <div class="mb-1"><span class="muted">생성일</span> : ${IM.escapeHtml(fmtDate(team.createdAt))}</div>
-                <div class="mt-2">
-                  <div class="muted small">메모</div>
-                  <div>${IM.escapeHtml(team.practiceNote || "-")}</div>
-                </div>
-                <a class="btn btn-dark mt-3" href="#/teams/${IM.escapeHtml(team.id)}">
-                  <i class="bi bi-box-arrow-up-right me-1"></i>팀 상세 보기
-                </a>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-lg-5">
-            <div class="card">
-              <div class="card-body">
-                <div class="fw-semibold mb-2">빠른 메뉴</div>
-                <div class="vstack gap-2">
-                  <a class="btn btn-outline-dark" href="#/teams">팀 찾기</a>
-                  <a class="btn btn-outline-dark" href="#/profile">내 프로필</a>
-                </div>
-              </div>
-            </div>
+        <div class="card">
+          <div class="card-body">
+            <div class="muted">불러오는 중...</div>
           </div>
         </div>
       `);
-    } catch (e) {
-      if (e && e.status === 404) {
+
+      await ensureMe();
+
+        const renderNoTeam = () => {
+         renderShell("내 팀", `
+            <div class="card">
+              <div class="card-body">
+                <div class="fw-semibold">아직 합류한 팀이 없습니다</div>
+                <div class="muted mt-1">팀을 만들거나, 팀에 지원해보세요.</div>
+                <div class="d-flex gap-2 mt-3">
+                  <a class="btn btn-dark" href="#/teams"><i class="bi bi-search me-1"></i>팀 찾기</a>
+                  <a class="btn btn-outline-dark" href="#/create-team"><i class="bi bi-plus-circle me-1"></i>팀 만들기</a>
+                </div>
+              </div>
+            </div>
+          `);
+        };
+
+        const getStatus = (e) =>
+          e?.status ?? e?.statusCode ?? e?.httpStatus ?? e?.response?.status ?? e?.data?.status;
+
+      try {
+        // ✅ 백엔드가 제공해야 하는 엔드포인트(권장)
+        // GET /teams/me  -> { id, teamName, leaderUserId, practiceRegion, practiceNote, createdAt }
+        const raw = await IM.apiFetch("/teams/me", { auth: true, silent: true });
+        const team = Array.isArray(raw) ? raw[0] : raw;
+
+         if (!team || !team.id) {
+                renderShell("내 팀", `
+                  <div class="card">
+                    <div class="card-body">
+                      <div class="fw-semibold">아직 합류한 팀이 없습니다</div>
+                      <div class="muted mt-1">팀을 만들거나, 팀에 지원해보세요.</div>
+                      <div class="d-flex gap-2 mt-3">
+                        <a class="btn btn-dark" href="#/teams"><i class="bi bi-search me-1"></i>팀 찾기</a>
+                        <a class="btn btn-outline-dark" href="#/create-team"><i class="bi bi-plus-circle me-1"></i>팀 만들기</a>
+                      </div>
+                    </div>
+                  </div>
+                `);
+                return;
+              }
+
+        // 로그인 후 우측에 노출되던 '빠른 메뉴'는 제거하고, 내 팀을 카드로 넓게 보여준다.
         renderShell("내 팀", `
-          <div class="card">
-            <div class="card-body">
-              <div class="fw-semibold">속해있는 팀이 없습니다!</div>
-              <div class="muted mt-1">팀을 만들거나, 팀에 지원해보세요.</div>
-              <div class="d-flex gap-2 mt-3">
-                <a class="btn btn-dark" href="#/teams"><i class="bi bi-search me-1"></i>팀 찾기</a>
-                <a class="btn btn-outline-dark" href="#/create-team"><i class="bi bi-plus-circle me-1"></i>팀 만들기</a>
+          <div class="row justify-content-center">
+            <div class="col-lg-8">
+              <div class="card">
+                <div class="card-body">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="fw-semibold">${IM.escapeHtml(team.teamName || "(이름 없음)")}</div>
+                    <span class="badge text-bg-dark">참여중</span>
+                  </div>
+                  <div class="mb-1"><span class="muted">연습 지역</span> : ${IM.escapeHtml(fmtEnum("region", team.practiceRegion) || team.practiceRegion || "-")}</div>
+                  <div class="mb-1"><span class="muted">팀장</span> : ${IM.escapeHtml(team.leaderName || "-")}</div>
+                  <div class="mb-1"><span class="muted">생성일</span> : ${IM.escapeHtml(fmtDate(team.createdAt))}</div>
+                  <div class="mt-2">
+                    <div class="muted small">메모</div>
+                    <div>${IM.escapeHtml(team.practiceNote || "-")}</div>
+                  </div>
+                  <div class="d-flex gap-2 mt-3">
+                    <a class="btn btn-dark" href="#/teams/${IM.escapeHtml(team.id)}">
+                      <i class="bi bi-box-arrow-up-right me-1"></i>팀 상세 보기
+                    </a>
+                    <a class="btn btn-outline-dark" href="#/teams">
+                      <i class="bi bi-search me-1"></i>팀 더 찾기
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         `);
-        return;
+      } catch (e) {
+            const status = getStatus(e);
+            const msg = String(e?.message || "");
+
+           // "팀 없음"을 404뿐 아니라 다양한 케이스로 처리 (apiFetch의 에러 shape/백엔드 응답이 달라도 안전)
+            const noTeam =
+              status === 404 ||
+              status === 204 ||
+              /팀.*없/.test(msg) ||
+              /속해.*팀.*없/.test(msg);
+
+            if (noTeam) {
+              renderNoTeam();
+              return;
+            }
+
+            // (선택) 서버가 팀 없음도 5xx로 내려주는 경우 UX 방어
+            if (status >= 500) {
+              console.warn("[my-team] server error treated as empty state:", e);
+              renderNoTeam();
+              return;
+            }
+
+            throw e;
       }
-      throw e;
     }
-  }
 
   async function viewCreateTeam() {
     if (!requireAuth()) return;
@@ -643,10 +688,6 @@
                 <i class="bi bi-plus-circle me-1"></i>생성
               </button>
             </div>
-          </div>
-
-          <div class="small-help mt-3">
-            생성 후 팀 상세 화면에서 포지션 슬롯을 추가하고, 지원자를 관리할 수 있어요.
           </div>
         </div>
       </div>

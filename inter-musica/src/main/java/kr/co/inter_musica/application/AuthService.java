@@ -66,7 +66,7 @@ public class AuthService {
     @Transactional(readOnly = true)
     public String login(String email, String rawPassword) {
         UserJpaEntity user = userJpaRepository.findByEmail(email)
-                .orElseThrow(() -> new ApiException(ErrorCode.INVALID_CREDENTIALS, "이메일 또는 비밀번호가 올바르지 않습니다."));
+                .orElseThrow(() -> new ApiException(ErrorCode.INVALID_CREDENTIALS, "가입된 로그인 정보가 없습니다."));
 
         if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS, "이메일 또는 비밀번호가 올바르지 않습니다.");

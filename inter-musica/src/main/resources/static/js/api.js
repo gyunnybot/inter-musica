@@ -93,11 +93,17 @@
       ? (errPayload.message || errPayload.error || errPayload.errorMessage)
       : ("요청에 실패했습니다. (" + res.status + ")");
 
-    // 401이면 토큰 정리 + 로그인으로 (silent 여부와 관계없이 이동)
+    // 401: 기본은 로그인 필요 처리. 단, 로그인 시도(/auth/login)는 자격 증명 오류이므로 메시지만 표시
+    const isLoginAttempt = path.startsWith("/auth/login") && String(method).toUpperCase() === "POST";
+
     if (res.status === 401) {
-      setToken(null);
-      if (!silent) showToast("로그인이 필요합니다.", "warning");
-      window.location.hash = "#/login";
+      if (isLoginAttempt) {
+              if (!silent) showToast(msg, "danger");
+      } else {
+              setToken(null);
+              if (!silent) showToast("로그인이 필요합니다.", "warning");
+              window.location.hash = "#/login";
+            }
     } else if (res.status === 403) {
       // 토큰이 없으면 사실상 미인증으로 취급 (프로젝트 설정에 따라 403으로 내려올 수 있음)
       if (!getToken()) {
