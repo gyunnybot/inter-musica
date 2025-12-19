@@ -191,7 +191,7 @@
       const li = document.createElement("li");
       li.className = "nav-item";
       const btn = document.createElement("button");
-      btn.className = "btn btn-sm btn-outline-light ms-lg-2";
+      btn.className = "btn btn-sm btn-outline-light ms-lg-2 align-self-center my-2";
       btn.innerHTML = '<i class="bi bi-box-arrow-right me-1"></i>로그아웃';
       btn.addEventListener("click", () => {
         IM.setToken(null);
@@ -267,6 +267,7 @@
                   <th>팀</th>
                   <th>연습 지역</th>
                   <th class="d-none d-lg-table-cell">남은 포지션</th>
+                  <th>메모</th>
                   <th class="d-none d-md-table-cell">생성일</th>
                   <th></th>
                 </tr>
