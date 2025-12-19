@@ -102,6 +102,15 @@ public class JoinRequestService {
     }
 
     @Transactional(readOnly = true)
+    public List<JoinRequestJpaEntity> getMyJoinRequests(long currentUserId, JoinRequestStatus status) {
+        if (status == null) {
+            return joinRequestJpaRepository.findByApplicantUserIdOrderByCreatedAtDesc(currentUserId);
+        }
+
+        return joinRequestJpaRepository.findByApplicantUserIdAndStatusOrderByCreatedAtDesc(currentUserId, status);
+    }
+
+    @Transactional(readOnly = true)
     public List<JoinRequestJpaEntity> getApplicantList(long currentUserId, Long teamId, Long positionId, JoinRequestStatus status) {
         TeamJpaEntity team = teamJpaRepository.findById(teamId)
                 .orElseThrow(() -> new ApiException(ErrorCode.TEAM_NOT_FOUND, "팀을 찾을 수 없습니다."));
@@ -166,9 +175,9 @@ public class JoinRequestService {
         // 팀원 등록
         if (!teamMemberJpaRepository.existsByTeamIdAndUserId(joinRequestJpaEntity.getTeamId(), joinRequestJpaEntity.getApplicantUserId())) {
             teamMemberJpaRepository.save(new TeamMemberJpaEntity(
-                    joinRequestJpaEntity.getTeamId(),
-                    joinRequestJpaEntity.getApplicantUserId()
-                )
+                            joinRequestJpaEntity.getTeamId(),
+                            joinRequestJpaEntity.getApplicantUserId()
+                    )
             );
         }
     }

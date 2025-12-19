@@ -39,6 +39,24 @@ public class ProfileController {
         return ResponseEntity.ok(profileResponse);
     }
 
+    @GetMapping("/{userId}")
+    public ResponseEntity<ProfileResponse> getProfileByUserId(
+            @PathVariable("userId") long userId
+    ) {
+        ProfileJpaEntity profile = profileService.getProfile(userId);
+
+        ProfileResponse profileResponse = new ProfileResponse(
+                profile.getProfileId(),
+                profile.getName(),
+                profile.getInstrument(),
+                profile.getLevel(),
+                profile.getRegion(),
+                profile.getUpdatedAt()
+        );
+
+        return ResponseEntity.ok(profileResponse);
+    }
+
     @PatchMapping("/me")
     public ResponseEntity<Void> updateProfile(
             @Valid @RequestBody ProfileUpdateRequest profileUpdateRequest

@@ -53,7 +53,9 @@
 
   const state = {
     me: null,     // ProfileResponse
-    loadingMe: false
+    loadingMe: false,
+    myTeam: undefined, // undefined: unknown, null: no team, object: team
+    loadingMyTeam: false
   };
 
   // 간단 캐시(지원자 프로필 등 반복 조회 방지)
@@ -94,7 +96,7 @@
 
   async function ensureMe() {
     const token = IM.getToken();
-    if (!token) { state.me = null; return null; }
+    if (!token) { state.me = null; state.myTeam = undefined; return null; }
     if (state.me) return state.me;
     if (state.loadingMe) return state.me;
 
@@ -105,9 +107,52 @@
       state.me = null;
     } finally {
       state.loadingMe = false;
-      renderNav();
     }
+
+    // 내 팀 상태도 같이 로드해서 네비게이션(팀 만들기 노출 여부 등)을 결정
+    await ensureMyTeam();
+    renderNav();
     return state.me;
+  }
+
+  
+
+  function pickTeamId(t) {
+    return t?.id ?? t?.teamId ?? t?.team_id;
+  }
+
+  function hasTeam() {
+    const id = pickTeamId(state.myTeam);
+    return id !== null && id !== undefined;
+  }
+
+  async function ensureMyTeam(force = false) {
+    const token = IM.getToken();
+    if (!token) {
+      state.myTeam = undefined;
+      state.loadingMyTeam = false;
+      return null;
+    }
+
+    if (!force && state.myTeam !== undefined) return state.myTeam;
+    if (state.loadingMyTeam) return state.myTeam;
+
+    state.loadingMyTeam = true;
+    try {
+      const t = await IM.apiFetch("/teams/me", { auth: true, silent: true });
+      state.myTeam = t || null;
+    } catch (e) {
+      const status = e?.status ?? e?.statusCode ?? e?.httpStatus ?? e?.response?.status ?? e?.data?.status;
+      if (status === 404 || status === 204) {
+        state.myTeam = null;
+      } else {
+        // 네트워크/서버 오류 등은 'unknown'으로 두고 UI를 과도하게 막지 않음
+        if (state.myTeam === undefined) state.myTeam = undefined;
+      }
+    } finally {
+      state.loadingMyTeam = false;
+    }
+    return state.myTeam;
   }
 
   function renderNav() {
@@ -134,8 +179,12 @@
         navItem("#/signup", "회원가입", "bi-person-plus")
       );
     } else {
+      if (!hasTeam()) {
+        navRight.append(
+          navItem("#/create-team", "팀 만들기", "bi-plus-circle"),
+        );
+      }
       navRight.append(
-        navItem("#/create-team", "팀 만들기", "bi-plus-circle"),
         navItem("#/profile", me ? (me.name + " 님") : "내 프로필", "bi-person-circle"),
       );
 
@@ -147,6 +196,7 @@
       btn.addEventListener("click", () => {
         IM.setToken(null);
         state.me = null;
+        state.myTeam = undefined;
         renderNav();
         IM.showToast("로그아웃 되었습니다.", "secondary");
         window.location.hash = "#/login";
@@ -216,8 +266,7 @@
                 <tr>
                   <th>팀</th>
                   <th>연습 지역</th>
-                  <th class="d-none d-lg-table-cell">남은 자리</th>
-                  <th class="d-none d-md-table-cell">메모</th>
+                  <th class="d-none d-lg-table-cell">남은 포지션</th>
                   <th class="d-none d-md-table-cell">생성일</th>
                   <th></th>
                 </tr>
@@ -237,49 +286,54 @@
     await loadTeams("");
   }
 
-  async function loadTeams(region) {
-    const rows = document.getElementById("teamRows");
-    const countEl = document.getElementById("teamCount");
-    rows.innerHTML = `<tr><td colspan="6" class="muted">불러오는 중...</td></tr>`;
+async function loadTeams(region) {
+  const rows = document.getElementById("teamRows");
+  const countEl = document.getElementById("teamCount");
+  if (!rows || !countEl) return;
 
-    if (!rows || !countEl) return;
+  rows.innerHTML = `<tr><td colspan="6" class="muted">불러오는 중...</td></tr>`;
 
-    const qs = region ? ("?region=" + encodeURIComponent(region)) : "";
-    const raw = await IM.apiFetch("/teams" + qs, { auth: true });
-    const list = asArray(raw);
+  const qs = region ? ("?region=" + encodeURIComponent(region)) : "";
+  const raw = await IM.apiFetch("/teams" + qs, { auth: true });
+  const list = asArray(raw);
 
-    countEl.textContent = `${list.length}개`;
-    if (!list.length) {
-      rows.innerHTML = `<tr><td colspan="6" class="muted">아직 생성된 팀이 없습니다.</td></tr>`;
-      return;
-    }
+  countEl.textContent = `${list.length}개`;
+  if (!list.length) {
+    rows.innerHTML = `<tr><td colspan="6" class="muted">아직 생성된 팀이 없습니다.</td></tr>`;
+    return;
+  }
 
-    rows.innerHTML = list.map(t => `
+  rows.innerHTML = list.map(t => {
+    const teamId = (t.id ?? t.teamId ?? t.team_id);
+    const memo = (t.practiceNote ?? t.memo ?? t.note ?? "");
+    return `
       <tr>
-        <td>
-          <div class="fw-semibold">${IM.escapeHtml(t.teamName)}</div>
-          <div class="muted small">leaderUserId: ${t.leaderUserId}</div>
-        </td>
+        <td class="text-truncate">${IM.escapeHtml(t.teamName || "")}</td>
         <td>${IM.escapeHtml(fmtEnum("region", t.practiceRegion) || t.practiceRegion || "-")}</td>
-        <td class="d-none d-lg-table-cell" id="teamSlot-${t.id}"><span class="muted small">-</span></td>
-        <td class="d-none d-md-table-cell">${IM.escapeHtml(t.practiceNote || "-")}</td>
+        <td class="d-none d-lg-table-cell" id="teamSlot-${IM.escapeHtml(String(teamId))}">
+          <span class="muted small">불러오는 중...</span>
+        </td>
+        <td class="d-none d-md-table-cell">${IM.escapeHtml(memo || "-")}</td>
         <td class="d-none d-md-table-cell">${IM.escapeHtml(fmtDate(t.createdAt))}</td>
         <td class="text-end">
-          <a class="btn btn-sm btn-outline-dark" href="#/teams/${t.id}">
+          <a class="btn btn-sm btn-dark" href="#/teams/${IM.escapeHtml(String(teamId))}">
             상세 <i class="bi bi-chevron-right ms-1"></i>
           </a>
         </td>
       </tr>
-    `).join("");
+    `;
+  }).join("");
 
-    // 각 팀별 남은 자리 시각화(가능한 경우)
-    enhanceTeamListSlots(list).catch(() => {});
-  }
+  // 남은 포지션 정보는 팀별로 추가 조회해서 채움(비동기)
+  enhanceTeamListSlots(list);
+}
 
-  async function enhanceTeamListSlots(list) {
-    // 팀 목록이 많을 수 있어서 너무 무겁게 하지 않기 위해...
+
+    async function enhanceTeamListSlots(list) {
+    // 팀 목록이 많을 수 있어서 너무 무겁게 하지 않기 위해 순차적으로 채웁니다.
     for (const t of list) {
-      const cell = document.getElementById(`teamSlot-${t.id}`);
+      const teamId = (t.id ?? t.teamId ?? t.team_id);
+      const cell = document.getElementById(`teamSlot-${teamId}`);
       if (!cell) continue;
 
       // 이미 다른 화면으로 이동했으면 중단
@@ -287,23 +341,39 @@
 
       try {
         const [positions, stats] = await Promise.all([
-          IM.apiFetch(`/teams/${t.id}/positions`, { auth: true, silent: true }),
-          IM.apiFetch(`/teams/${t.id}/positions/stats`, { auth: true, silent: true })
+          IM.apiFetch(`/teams/${teamId}/positions`, { auth: true, silent: true }),
+          IM.apiFetch(`/teams/${teamId}/positions/stats`, { auth: true, silent: true })
         ]);
 
-        const total = Array.isArray(positions) ? positions.reduce((acc, p) => acc + Number(p.capacity || 0), 0) : 0;
-        const used = Array.isArray(stats) ? stats.reduce((acc, s) => acc + Number(s.acceptedCount || 0), 0) : 0;
-        const remain = Math.max(0, total - used);
-        const pct = total ? Math.round((used / total) * 100) : 0;
+        const statMap = Object.create(null);
+        if (Array.isArray(stats)) {
+          for (const s of stats) statMap[String(s.positionId)] = Number(s.acceptedCount || 0);
+        }
 
-        cell.innerHTML = total
-          ? `
-            <div class="progress im-progress-sm">
-              <div class="progress-bar" style="width:${pct}%"></div>
-            </div>
-            <div class="small muted mt-1">남은 ${remain}/${total}</div>
-          `
-          : `<span class="muted small">-</span>`;
+        const remainByInst = Object.create(null);
+        if (Array.isArray(positions)) {
+          for (const p of positions) {
+            const total = Number(p.capacity || 0);
+            const used = Number(statMap[String(p.id)] || 0);
+            const remain = Math.max(0, total - used);
+            if (remain <= 0) continue;
+            const inst = p.instrument || "-";
+            remainByInst[inst] = (remainByInst[inst] || 0) + remain;
+          }
+        }
+
+        const entries = Object.entries(remainByInst);
+        if (!entries.length) {
+          cell.innerHTML = `<span class="muted small">-</span>`;
+          continue;
+        }
+
+        const lines = entries.map(([inst, cnt]) => {
+          const name = fmtEnum("instrument", inst) || inst;
+          return `${IM.escapeHtml(name)} ${IM.escapeHtml(String(cnt))}명`;
+        });
+
+        cell.innerHTML = `<div class="small">${lines.join("<br>")}</div>`;
       } catch {
         // stats API가 없거나 권한/오류가 있으면 조용히 패스
         cell.innerHTML = `<span class="muted small">-</span>`;
@@ -349,6 +419,7 @@
 
       IM.setToken(res.accessToken);
       state.me = null;
+      state.myTeam = undefined;
       await ensureMe();
       IM.showToast("로그인 성공!", "success");
       window.location.hash = '#/teams';
@@ -445,7 +516,6 @@
           <div class="card">
             <div class="card-body">
               <div class="fw-semibold mb-2">현재 정보</div>
-              <div class="mb-1"><span class="muted">UserId</span> : <span class="fw-semibold">${me.userId}</span></div>
               <div class="mb-1"><span class="muted">이름</span> : ${IM.escapeHtml(me.name)}</div>
               <div class="mb-1"><span class="muted">악기</span> : ${IM.escapeHtml(fmtEnum("instrument", me.instrument) || me.instrument)}</div>
               <div class="mb-1"><span class="muted">레벨</span> : ${IM.escapeHtml(fmtEnum("level", me.level) || me.level)}</div>
@@ -492,8 +562,8 @@
 
           <div class="card mt-3">
             <div class="card-body">
-              <div class="fw-semibold mb-2">최근 지원(브라우저에 저장됨)</div>
-              <div class="small-help mb-2">현재 백엔드에 “내 지원 목록 조회” API가 없어서, 지원 ID를 로컬에만 저장해요.</div>
+              <div class="fw-semibold mb-2">최근 지원</div>
+              <div class="small-help mb-2">최근 지원한 팀/포지션과 상태를 확인할 수 있어요.</div>
               <div id="jrList" class="vstack gap-2"></div>
             </div>
           </div>
@@ -517,150 +587,218 @@
     renderMyJoinRequests();
   }
 
-  function renderMyJoinRequests() {
-    const box = document.getElementById("jrList");
-    if (!box) return;
-    const ids = IM.getMyJoinRequestIds();
-    if (!ids.length) {
-      box.innerHTML = `<div class="muted">최근 지원 내역이 없습니다.</div>`;
-      return;
-    }
-    box.innerHTML = ids.map(id => `
-      <div class="d-flex align-items-center justify-content-between border rounded-3 p-2">
-        <div>
-          <div class="fw-semibold">joinRequestId: ${id}</div>
-          <div class="muted small">취소는 /join-requests/{id}/cancel 호출</div>
-        </div>
-        <button class="btn btn-sm btn-outline-danger" data-jr="${id}">
-          <i class="bi bi-x-circle me-1"></i>취소
-        </button>
-      </div>
-    `).join("");
+async function renderMyJoinRequests() {
+  const box = document.getElementById("jrList");
+  if (!box) return;
 
-    box.querySelectorAll("button[data-jr]").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        const id = Number(btn.getAttribute("data-jr"));
-        await IM.apiFetch(`/join-requests/${id}/cancel`, { method: "POST" });
-        IM.removeMyJoinRequestId(id);
-        IM.showToast("지원이 취소되었습니다.", "secondary");
-        renderMyJoinRequests();
-      });
-    });
+  box.innerHTML = `<div class="muted">불러오는 중...</div>`;
+
+  let list = [];
+  try {
+    const raw = await IM.apiFetch("/join-requests/me", { auth: true, silent: true });
+    list = asArray(raw);
+  } catch (e) {
+    box.innerHTML = `<div class="text-danger small">지원 내역을 불러오지 못했어요.</div>`;
+    return;
   }
 
-  async function viewMyTeam() {
-      if (!requireAuth()) return;
+  if (!list.length) {
+    box.innerHTML = `
+      <div class="border rounded-3 p-3">
+        <div class="fw-semibold">최근 지원 내역이 없습니다</div>
+        <div class="muted small mt-1">팀 찾기에서 원하는 팀에 지원해보세요.</div>
+        <a class="btn btn-sm btn-dark mt-3" href="#/teams">
+          <i class="bi bi-search me-1"></i>팀 찾기
+        </a>
+      </div>
+    `;
+    return;
+  }
 
-      renderShell("내 팀", `
-        <div class="card">
-          <div class="card-body">
-            <div class="muted">불러오는 중...</div>
+  box.innerHTML = list.map(jr => {
+    const statusText = fmtEnum("joinStatus", jr.status) || jr.status;
+    const teamName = jr.team?.teamName || "-";
+    const region = jr.team?.practiceRegion ? (fmtEnum("region", jr.team.practiceRegion) || jr.team.practiceRegion) : "-";
+    const instrument = jr.position?.instrument ? (fmtEnum("instrument", jr.position.instrument) || jr.position.instrument) : "-";
+    const levelMin = jr.position?.requiredLevelMin ? (fmtEnum("level", jr.position.requiredLevelMin) || jr.position.requiredLevelMin) : "-";
+    const createdAt = fmtDate(jr.createdAt);
+    const cancelBtn = jr.cancellable
+      ? `<button class="btn btn-sm btn-outline-danger" data-jr-cancel="${jr.id}">
+           <i class="bi bi-x-circle me-1"></i>취소
+         </button>`
+      : `<span class="muted small">-</span>`;
+
+    return `
+      <div class="border rounded-3 p-3">
+        <div class="d-flex align-items-start justify-content-between gap-2">
+          <div class="min-w-0">
+            <div class="fw-semibold text-truncate">${IM.escapeHtml(teamName)}</div>
+            <div class="muted small mt-1">
+              ${IM.escapeHtml(region)} · ${IM.escapeHtml(instrument)} · 최소 ${IM.escapeHtml(levelMin)}
+            </div>
+            <div class="small mt-2">
+              <span class="badge text-bg-light">${IM.escapeHtml(statusText)}</span>
+              <span class="muted ms-2">${IM.escapeHtml(createdAt)}</span>
+            </div>
+          </div>
+          <div class="d-flex flex-column align-items-end gap-2">
+            ${cancelBtn}
+            ${jr.team?.id ? `<a class="btn btn-sm btn-outline-dark" href="#/teams/${jr.team.id}">
+                상세 <i class="bi bi-chevron-right ms-1"></i>
+              </a>` : ``}
           </div>
         </div>
-      `);
+      </div>
+    `;
+  }).join("");
 
-      await ensureMe();
-
-        const renderNoTeam = () => {
-         renderShell("내 팀", `
-            <div class="card">
-              <div class="card-body">
-                <div class="fw-semibold">아직 합류한 팀이 없습니다</div>
-                <div class="muted mt-1">팀을 만들거나, 팀에 지원해보세요.</div>
-                <div class="d-flex gap-2 mt-3">
-                  <a class="btn btn-dark" href="#/teams"><i class="bi bi-search me-1"></i>팀 찾기</a>
-                  <a class="btn btn-outline-dark" href="#/create-team"><i class="bi bi-plus-circle me-1"></i>팀 만들기</a>
-                </div>
-              </div>
-            </div>
-          `);
-        };
-
-        const getStatus = (e) =>
-          e?.status ?? e?.statusCode ?? e?.httpStatus ?? e?.response?.status ?? e?.data?.status;
-
+  box.querySelectorAll("[data-jr-cancel]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-jr-cancel");
       try {
-        // ✅ 백엔드가 제공해야 하는 엔드포인트(권장)
-        // GET /teams/me  -> { id, teamName, leaderUserId, practiceRegion, practiceNote, createdAt }
-        const raw = await IM.apiFetch("/teams/me", { auth: true, silent: true });
-        const team = Array.isArray(raw) ? raw[0] : raw;
+        await IM.apiFetch(`/join-requests/${id}/cancel`, { method: "POST" });
+        IM.showToast("지원이 취소되었습니다.", "secondary");
+        renderMyJoinRequests();
+      } catch (e) {
+        IM.showToast(e?.message || "취소에 실패했습니다.", "danger");
+      }
+    });
+  });
+}
 
-         if (!team || !team.id) {
-                renderShell("내 팀", `
-                  <div class="card">
-                    <div class="card-body">
-                      <div class="fw-semibold">아직 합류한 팀이 없습니다</div>
-                      <div class="muted mt-1">팀을 만들거나, 팀에 지원해보세요.</div>
-                      <div class="d-flex gap-2 mt-3">
-                        <a class="btn btn-dark" href="#/teams"><i class="bi bi-search me-1"></i>팀 찾기</a>
-                        <a class="btn btn-outline-dark" href="#/create-team"><i class="bi bi-plus-circle me-1"></i>팀 만들기</a>
-                      </div>
-                    </div>
-                  </div>
-                `);
-                return;
-              }
 
-        // 로그인 후 우측에 노출되던 '빠른 메뉴'는 제거하고, 내 팀을 카드로 넓게 보여준다.
-        renderShell("내 팀", `
-          <div class="row justify-content-center">
-            <div class="col-lg-8">
-              <div class="card">
-                <div class="card-body">
-                  <div class="d-flex align-items-center justify-content-between mb-2">
-                    <div class="fw-semibold">${IM.escapeHtml(team.teamName || "(이름 없음)")}</div>
-                    <span class="badge text-bg-dark">참여중</span>
-                  </div>
-                  <div class="mb-1"><span class="muted">연습 지역</span> : ${IM.escapeHtml(fmtEnum("region", team.practiceRegion) || team.practiceRegion || "-")}</div>
-                  <div class="mb-1"><span class="muted">팀장</span> : ${IM.escapeHtml(team.leaderName || "-")}</div>
-                  <div class="mb-1"><span class="muted">생성일</span> : ${IM.escapeHtml(fmtDate(team.createdAt))}</div>
-                  <div class="mt-2">
-                    <div class="muted small">메모</div>
-                    <div>${IM.escapeHtml(team.practiceNote || "-")}</div>
-                  </div>
-                  <div class="d-flex gap-2 mt-3">
-                    <a class="btn btn-dark" href="#/teams/${IM.escapeHtml(team.id)}">
-                      <i class="bi bi-box-arrow-up-right me-1"></i>팀 상세 보기
-                    </a>
-                    <a class="btn btn-outline-dark" href="#/teams">
-                      <i class="bi bi-search me-1"></i>팀 더 찾기
-                    </a>
-                  </div>
-                </div>
+async function viewMyTeam() {
+  if (!requireAuth()) return;
+
+  renderShell("내 팀", `
+    <div class="card">
+      <div class="card-body">
+        <div class="muted">불러오는 중...</div>
+      </div>
+    </div>
+  `);
+
+  await ensureMe();
+  const me = state.me; // { userId, name, ... }
+
+  const pickTeamId = (t) => (t?.id ?? t?.teamId ?? t?.team_id);
+
+  const renderNoTeam = () => {
+    renderShell("내 팀", `
+      <div class="card">
+        <div class="card-body">
+          <div class="fw-semibold">아직 합류한 팀이 없습니다</div>
+          <div class="muted mt-1">팀을 만들거나, 팀에 지원해보세요.</div>
+          <div class="d-flex gap-2 mt-3">
+            <a class="btn btn-dark" href="#/teams"><i class="bi bi-search me-1"></i>팀 찾기</a>
+            <a class="btn btn-outline-dark" href="#/create-team"><i class="bi bi-plus-circle me-1"></i>팀 만들기</a>
+          </div>
+        </div>
+      </div>
+    `);
+  };
+
+  const renderTeam = (team) => {
+    const teamId = pickTeamId(team);
+    if (!teamId) return renderNoTeam();
+
+    renderShell("내 팀", `
+      <div class="row justify-content-center">
+        <div class="col-lg-8">
+          <div class="card">
+            <div class="card-body">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="fw-semibold">${IM.escapeHtml(team.teamName || "(이름 없음)")}</div>
+              </div>
+
+              <div class="mb-1">
+                <span class="muted">연습 지역</span> :
+                ${IM.escapeHtml(fmtEnum("region", team.practiceRegion) || team.practiceRegion || "-")}
+              </div>
+
+              <div class="mb-1">
+                <span class="muted">팀장</span> :
+                ${IM.escapeHtml(team.leaderName || me?.name || "-")}
+              </div>
+
+              <div class="mb-1">
+                <span class="muted">생성일</span> :
+                ${IM.escapeHtml(fmtDate(team.createdAt))}
+              </div>
+
+              <div class="mt-2">
+                <div class="muted small">메모</div>
+                <div>${IM.escapeHtml(team.practiceNote || "-")}</div>
+              </div>
+
+              <div class="d-flex gap-2 mt-3">
+                <a class="btn btn-dark" href="#/teams/${IM.escapeHtml(teamId)}">
+                  <i class="bi bi-box-arrow-up-right me-1"></i>팀 상세 보기
+                </a>
               </div>
             </div>
           </div>
-        `);
-      } catch (e) {
-            const status = getStatus(e);
-            const msg = String(e?.message || "");
+        </div>
+      </div>
+    `);
+  };
 
-           // "팀 없음"을 404뿐 아니라 다양한 케이스로 처리 (apiFetch의 에러 shape/백엔드 응답이 달라도 안전)
-            const noTeam =
-              status === 404 ||
-              status === 204 ||
-              /팀.*없/.test(msg) ||
-              /속해.*팀.*없/.test(msg);
+  // 팀장(내가 만든 팀) fallback: /teams 목록에서 leaderUserId로 내 팀 찾기
+  async function findLeaderTeam() {
+    if (!me?.userId) return null;
+    const list = asArray(await IM.apiFetch("/teams", { auth: true, silent: true }));
+    const mine = list
+      .filter(t => Number(t.leaderUserId) === Number(me.userId))
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    return mine[0] || null;
+  }
 
-            if (noTeam) {
-              renderNoTeam();
-              return;
-            }
+  try {
+    // 1) 우선 "내가 속한 팀" 조회 (팀원/팀장 모두 여기서 내려오면 가장 좋음)
+    const raw = await IM.apiFetch("/teams/me", { auth: true, silent: true });
+    let team = Array.isArray(raw) ? raw[0] : raw;
 
-            // (선택) 서버가 팀 없음도 5xx로 내려주는 경우 UX 방어
-            if (status >= 500) {
-              console.warn("[my-team] server error treated as empty state:", e);
-              renderNoTeam();
-              return;
-            }
-
-            throw e;
-      }
+    // 2) /teams/me가 비어있으면 → "내가 만든 팀"으로 fallback
+    if (!pickTeamId(team)) {
+      const leaderTeam = await findLeaderTeam();
+      if (leaderTeam) team = leaderTeam;
     }
+
+    if (!pickTeamId(team)) {
+      renderNoTeam();
+      return;
+    }
+
+    renderTeam(team);
+  } catch (e) {
+    // 어떤 형태의 실패든: 우선 팀장 fallback을 시도하고, 실패하면 빈 상태로 처리 (라우터 에러 화면 방지)
+    try {
+      const leaderTeam = await findLeaderTeam();
+      if (leaderTeam) {
+        renderTeam(leaderTeam);
+        return;
+      }
+    } catch (_) {
+      // ignore
+    }
+
+    // 팀원인데 /teams/me가 실패하는 경우엔 빈 상태로 우선 처리 + 토스트
+    console.warn("[my-team] failed to load:", e);
+    IM.showToast(e?.message || "내 팀을 불러오지 못했어요.", "warning");
+    renderNoTeam();
+  }
+}
+
 
   async function viewCreateTeam() {
     if (!requireAuth()) return;
     await ensureMe();
+    await ensureMyTeam(true);
+    if (hasTeam()) {
+      IM.showToast("이미 팀에 속해 있어 팀을 생성할 수 없습니다.", "warning");
+      window.location.hash = "#/my-team";
+      return;
+    }
 
     renderShell("팀 만들기", `
       <div class="row justify-content-center">
@@ -704,6 +842,9 @@
       });
 
       IM.showToast("팀이 생성되었습니다.", "success");
+      // 생성자는 자동으로 팀에 속한 상태이므로 UI에서도 팀 만들기 메뉴를 숨김
+      state.myTeam = { id: res.teamId, teamId: res.teamId, leaderUserId: state.me?.userId, teamName, practiceRegion, practiceNote, createdAt: new Date().toISOString() };
+      renderNav();
       window.location.hash = `#/teams/${res.teamId}`;
     });
   }
@@ -719,7 +860,7 @@
       IM.apiFetch(`/teams/${teamId}/positions`, { auth: true })
     ]);
 
-    // ✅ 남은 슬롯 시각화를 위한 통계(있으면 사용)
+    // 남은 슬롯 시각화를 위한 통계(있으면 사용)
     // 권장 API: GET /teams/{teamId}/positions/stats -> [{ positionId, acceptedCount }]
     let stats = null;
     try {
@@ -743,10 +884,9 @@
             <div class="card-body">
               <div class="fw-semibold mb-2">팀 정보</div>
               <div class="mb-1"><span class="muted">연습 지역</span> : ${IM.escapeHtml(fmtEnum("region", team.practiceRegion) || team.practiceRegion || "-")}</div>
-              <div class="mb-1"><span class="muted">팀장</span> : userId ${team.leaderUserId}</div>
-              <div class="mb-1"><span class="muted">생성일</span> : ${IM.escapeHtml(fmtDate(team.createdAt))}</div>
-              <div class="mt-2">
-                <div class="muted small">메모</div>
+              <br><div class="mb-1"><span class="muted">팀 생성 날짜</span> : ${IM.escapeHtml(fmtDate(team.createdAt))}</div>
+              <br><div class="mt-2">
+                <div class="muted small">상세 정보</div>
                 <div>${IM.escapeHtml(team.practiceNote || "-")}</div>
               </div>
             </div>
@@ -783,7 +923,7 @@
             </div>
           </div>
 
-          ${isLeader ? leaderApplicantsCard(teamId) : ""}
+
         </div>
       </div>
 
@@ -819,6 +959,12 @@
     document.querySelectorAll("[data-apply]").forEach(btn => {
       btn.addEventListener("click", async () => {
         if (!requireAuth()) return;
+        await ensureMyTeam();
+        const myTeamId = pickTeamId(state.myTeam);
+        if (myTeamId && Number(myTeamId) !== Number(teamId)) {
+          IM.showToast("이미 다른 팀에 합류되어 있어 지원할 수 없습니다.", "warning");
+          return;
+        }
         if (isLeader) {
           IM.showToast("팀장은 지원할 수 없습니다.", "warning");
           return;
@@ -860,19 +1006,18 @@
       ? `<button class="btn btn-sm btn-outline-dark" data-applicants="${p.id}"><i class="bi bi-people me-1"></i>지원자</button>`
       : `<button class="btn btn-sm btn-dark" data-apply="${p.id}"><i class="bi bi-send me-1"></i>지원</button>`;
 
-    let slotHtml = `<span class="muted small">-</span>`;
-    if (statMap && Object.prototype.hasOwnProperty.call(statMap, String(p.id))) {
-      const used = Number(statMap[String(p.id)] || 0);
-      const total = Number(p.capacity || 0);
-      const remain = Math.max(0, total - used);
-      const pct = total ? Math.round((used / total) * 100) : 0;
-      slotHtml = `
-        <div class="progress im-progress-sm">
-          <div class="progress-bar" style="width:${pct}%"></div>
-        </div>
-        <div class="small muted mt-1">남은 ${remain}/${total}</div>
-      `;
-    }
+    const total = Number(p.capacity || 0);
+    const used = (statMap && Object.prototype.hasOwnProperty.call(statMap, String(p.id)))
+      ? Number(statMap[String(p.id)] || 0)
+      : 0;
+    const remain = Math.max(0, total - used);
+    const pct = total ? Math.round((used / total) * 100) : 0;
+    const slotHtml = `
+      <div class="progress im-progress-sm">
+        <div class="progress-bar" style="width:${pct}%"></div>
+      </div>
+      <div class="small muted mt-1">남은 자리: ${remain}</div>
+    `;
 
     return `
       <tr>
@@ -890,7 +1035,7 @@
     return `
       <div class="card mt-3">
         <div class="card-body">
-          <div class="fw-semibold mb-2">팀장 기능: 포지션 슬롯 생성</div>
+          <div class="fw-semibold mb-2">포지션 슬롯 생성</div>
           <div class="row g-2">
             <div class="col-md-5">
               <label class="form-label">악기</label>
@@ -940,7 +1085,7 @@
     }
 
     const uid = String(userId);
-    titleEl.textContent = `프로필 (userId: ${uid})`;
+    titleEl.textContent = `프로필`;
     bodyEl.innerHTML = `<div class="muted">불러오는 중...</div>`;
 
     bootstrap.Modal.getOrCreateInstance(modalEl).show();
@@ -988,6 +1133,24 @@
       const qs = statusSel.value ? `?joinRequestStatus=${encodeURIComponent(statusSel.value)}` : "";
       const list = await IM.apiFetch(`/teams/${teamId}/positions/${positionId}/join-requests${qs}`, { method: "GET" });
 
+      const uids = [...new Set((list || []).map(jr => String(jr.applicantUserId)))];
+
+      await Promise.all(uids.map(async (uid) => {
+        if (cache.profileByUserId[uid]) return;
+        try {
+          const p = await IM.apiFetch(`/profiles/${encodeURIComponent(uid)}`, { auth: true, silent: true });
+          cache.profileByUserId[uid] = p;
+        } catch (_) {
+          // 프로필 조회 실패 시에도 화면 깨지지 않게 최소값 저장
+          cache.profileByUserId[uid] = { name: null };
+        }
+      }));
+
+      const nameOf = (uid) => {
+        const p = cache.profileByUserId[String(uid)];
+        return p?.name || null;
+      };
+
       if (!list.length) {
         bodyEl.innerHTML = `<div class="muted">지원자가 없습니다.</div>`;
         return;
@@ -998,10 +1161,9 @@
           <table class="table align-middle">
             <thead>
               <tr>
-                <th>지원자 userId</th>
+                <th>지원자</th>
                 <th>상태</th>
                 <th class="d-none d-md-table-cell">지원일</th>
-                <th class="d-none d-md-table-cell">수정일</th>
                 <th class="text-end">처리</th>
               </tr>
             </thead>
@@ -1021,7 +1183,7 @@
                   <tr>
                     <td>
                       <button class="btn btn-link p-0 im-linklike" data-profile="${jr.applicantUserId}">
-                        ${jr.applicantUserId}
+                        ${IM.escapeHtml(nameOf(jr.applicantUserId) || `userId ${jr.applicantUserId}`)}
                       </button>
                     </td>
                     <td><span class="badge text-bg-light">${IM.escapeHtml(fmtEnum("joinStatus", jr.status))}</span></td>

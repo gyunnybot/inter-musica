@@ -63,6 +63,27 @@ public class TeamController {
         return ResponseEntity.ok(responseList);
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<TeamSummaryResponse> getMyTeam() {
+        long userId = SecurityUtil.currentUserId();
+
+        TeamJpaEntity team = teamService.findMyTeam(userId);
+        if (team == null) {
+            throw new ApiException(ErrorCode.TEAM_NOT_FOUND, "속해있는 팀이 없습니다.");
+        }
+
+        TeamSummaryResponse response = new TeamSummaryResponse(
+                team.getId(),
+                team.getTeamName(),
+                team.getPracticeRegion(),
+                team.getPracticeNote(),
+                team.getLeaderUserId(),
+                team.getCreatedAt()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/{teamId}")
     public ResponseEntity<TeamSummaryResponse> findTeamById(
             @PathVariable Long teamId

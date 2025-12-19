@@ -14,7 +14,16 @@ public interface JoinRequestJpaRepository extends JpaRepository<JoinRequestJpaEn
 
     long countByPositionSlotIdAndStatus(Long positionSlotId, JoinRequestStatus status);
 
+    long countByPositionSlotIdAndStatusIn(Long positionSlotId, List<JoinRequestStatus> statuses);
+
     List<JoinRequestJpaEntity> findByTeamIdAndPositionSlotIdAndStatus(Long teamId, Long positionSlotId, JoinRequestStatus status);
 
     List<JoinRequestJpaEntity> findByTeamIdAndPositionSlotId(Long teamId, Long positionSlotId);
+
+    List<JoinRequestJpaEntity> findByApplicantUserIdOrderByCreatedAtDesc(Long applicantUserId);
+
+    List<JoinRequestJpaEntity> findByApplicantUserIdAndStatusOrderByCreatedAtDesc(
+            Long applicantUserId,
+            JoinRequestStatus status
+    );
 }
