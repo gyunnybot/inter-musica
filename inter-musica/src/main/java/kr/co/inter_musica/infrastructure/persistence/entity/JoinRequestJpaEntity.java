@@ -22,6 +22,9 @@ public class JoinRequestJpaEntity {
     @Column(name="applicant_user_id", nullable = false)
     private Long applicantUserId;
 
+    @Column(length = 500)
+    private String message;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private JoinRequestStatus status;
@@ -34,10 +37,11 @@ public class JoinRequestJpaEntity {
 
     protected JoinRequestJpaEntity() {}
 
-    public JoinRequestJpaEntity(Long teamId, Long positionSlotId, Long applicantUserId) {
+    public JoinRequestJpaEntity(Long teamId, Long positionSlotId, Long applicantUserId, String message) {
         this.teamId = teamId;
         this.positionSlotId = positionSlotId;
         this.applicantUserId = applicantUserId;
+        this.message = message;
         this.status = JoinRequestStatus.APPLIED;
     }
 
@@ -57,6 +61,7 @@ public class JoinRequestJpaEntity {
     public Long getTeamId() { return teamId; }
     public Long getPositionSlotId() { return positionSlotId; }
     public Long getApplicantUserId() { return applicantUserId; }
+    public String getMessage() { return message; }
     public JoinRequestStatus getStatus() { return status; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

@@ -4,6 +4,8 @@ import kr.co.inter_musica.application.JoinRequestService;
 import kr.co.inter_musica.domain.enums.JoinRequestStatus;
 import kr.co.inter_musica.infrastructure.persistence.entity.JoinRequestJpaEntity;
 import kr.co.inter_musica.domain.security.SecurityUtil;
+import jakarta.validation.Valid;
+import kr.co.inter_musica.presentation.dto.joinrequest.JoinRequestApplyRequest;
 import kr.co.inter_musica.infrastructure.persistence.entity.PositionSlotJpaEntity;
 import kr.co.inter_musica.infrastructure.persistence.entity.TeamJpaEntity;
 import kr.co.inter_musica.infrastructure.persistence.jpa.PositionSlotJpaRepository;
@@ -22,17 +24,17 @@ import java.util.stream.Collectors;
 @RestController
 public class JoinRequestController {
 
-    private final JoinRequestService joinService;
+    private final JoinRequestService joinRequestService;
     private final TeamJpaRepository teamJpaRepository;
     private final PositionSlotJpaRepository positionSlotJpaRepository;
 
     @Autowired
     public JoinRequestController(
-            JoinRequestService joinService,
+            JoinRequestService joinRequestService,
             TeamJpaRepository teamJpaRepository,
             PositionSlotJpaRepository positionSlotJpaRepository
     ) {
-        this.joinService = joinService;
+        this.joinRequestService = joinRequestService;
         this.teamJpaRepository = teamJpaRepository;
         this.positionSlotJpaRepository = positionSlotJpaRepository;
     }
@@ -41,11 +43,13 @@ public class JoinRequestController {
     @PostMapping("/teams/{teamId}/positions/{positionId}/join-requests")
     public ResponseEntity<Long> applyJoinRequest(
             @PathVariable Long teamId,
-            @PathVariable Long positionId
+            @PathVariable Long positionId,
+            @Valid @RequestBody(required = false) JoinRequestApplyRequest request
     ) {
         long userId = SecurityUtil.currentUserId();
 
-        Long joinRequestId = joinService.applyJoinRequest(userId, teamId, positionId);
+        String message = request == null ? null : request.getMessage();
+        Long joinRequestId = joinService.applyJoinRequest(userId, teamId, positionId, message);
 
         return ResponseEntity.ok(joinRequestId);
     }
@@ -57,7 +61,7 @@ public class JoinRequestController {
     ) {
         long userId = SecurityUtil.currentUserId();
 
-        joinService.cancelJoinRequest(userId, joinRequestId);
+        joinRequestService.cancelJoinRequest(userId, joinRequestId);
 
         return ResponseEntity.ok().build();
     }
@@ -68,7 +72,7 @@ public class JoinRequestController {
     ) {
         long userId = SecurityUtil.currentUserId();
 
-        List<JoinRequestJpaEntity> list = joinService.getMyJoinRequests(userId, status);
+        List<JoinRequestJpaEntity> list = joinRequestService.getMyJoinRequests(userId, status);
         if (list.isEmpty()) {
             return ResponseEntity.ok(List.of());
         }
@@ -103,6 +107,7 @@ public class JoinRequestController {
                     jr.getStatus(),
                     jr.getCreatedAt(),
                     jr.getUpdatedAt(),
+                    jr.getMessage(),
                     team,
                     position,
                     cancellable
@@ -121,7 +126,7 @@ public class JoinRequestController {
     ) {
         long userId = SecurityUtil.currentUserId();
 
-        List<JoinRequestJpaEntity> list = joinService.getApplicantList(userId, teamId, positionId, joinRequestStatus);
+        List<JoinRequestJpaEntity> list = joinRequestService.getApplicantList(userId, teamId, positionId, joinRequestStatus);
 
         List<JoinRequestResponse> responseList = list.stream()
                 .map(applicants -> new JoinRequestResponse(
@@ -129,6 +134,7 @@ public class JoinRequestController {
                                 applicants.getTeamId(),
                                 applicants.getPositionSlotId(),
                                 applicants.getApplicantUserId(),
+                                applicants.getMessage(),
                                 applicants.getStatus(),
                                 applicants.getCreatedAt(),
                                 applicants.getUpdatedAt()
@@ -146,7 +152,7 @@ public class JoinRequestController {
     ) {
         long userId = SecurityUtil.currentUserId();
 
-        joinService.acceptJoinRequest(userId, joinRequestId);
+        joinRequestService.acceptJoinRequest(userId, joinRequestId);
 
         return ResponseEntity.ok().build();
     }
@@ -158,7 +164,7 @@ public class JoinRequestController {
     ) {
         long userId = SecurityUtil.currentUserId();
 
-        joinService.rejectJoinRequest(userId, joinRequestId);
+        joinRequestService.rejectJoinRequest(userId, joinRequestId);
 
         return ResponseEntity.ok().build();
     }

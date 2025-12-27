@@ -39,7 +39,7 @@ public class JoinRequestService {
     }
 
     @Transactional
-    public Long applyJoinRequest(long currentUserId, Long teamId, Long positionId) {
+    public Long applyJoinRequest(long currentUserId, Long teamId, Long positionId, String message) {
         TeamJpaEntity team = teamJpaRepository.findById(teamId)
                 .orElseThrow(() -> new ApiException(ErrorCode.TEAM_NOT_FOUND, "팀을 찾을 수 없습니다."));
 
@@ -81,7 +81,7 @@ public class JoinRequestService {
 
         policy.ensureCapacityAvailable(acceptedCount, slot.getCapacity());
 
-        JoinRequestJpaEntity joinRequestJpaEntity = new JoinRequestJpaEntity(teamId, positionId, currentUserId);
+        JoinRequestJpaEntity joinRequestJpaEntity = new JoinRequestJpaEntity(teamId, positionId, currentUserId, message);
         joinRequestJpaRepository.save(joinRequestJpaEntity);
 
         return joinRequestJpaEntity.getId();

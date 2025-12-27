@@ -9,7 +9,7 @@ public class MyJoinRequestResponse {
     private JoinRequestStatus status;
     private Instant createdAt;
     private Instant updatedAt;
-
+    private String message;
     private TeamSummary team;
     private PositionSummary position;
 
@@ -20,6 +20,7 @@ public class MyJoinRequestResponse {
             JoinRequestStatus status,
             Instant createdAt,
             Instant updatedAt,
+            String message,
             TeamSummary team,
             PositionSummary position,
             boolean cancellable
@@ -28,6 +29,7 @@ public class MyJoinRequestResponse {
         this.status = status;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.message = message;
         this.team = team;
         this.position = position;
         this.cancellable = cancellable;
@@ -47,6 +49,10 @@ public class MyJoinRequestResponse {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public String getMessage() {
+        return message;
     }
 
     public TeamSummary getTeam() {

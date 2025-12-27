@@ -9,6 +9,7 @@ public class JoinRequestResponse {
     private Long teamId;
     private Long positionSlotId;
     private Long applicantUserId;
+    private String message;
     private JoinRequestStatus status;
     private Instant createdAt;
     private Instant updatedAt;
@@ -16,11 +17,12 @@ public class JoinRequestResponse {
     public JoinRequestResponse() {}
 
     public JoinRequestResponse(Long id, Long teamId, Long positionSlotId, Long applicantUserId,
-                               JoinRequestStatus status, Instant createdAt, Instant updatedAt) {
+                               String message, JoinRequestStatus status, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.teamId = teamId;
         this.positionSlotId = positionSlotId;
         this.applicantUserId = applicantUserId;
+        this.message = message;
         this.status = status;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -30,6 +32,7 @@ public class JoinRequestResponse {
     public Long getTeamId() { return teamId; }
     public Long getPositionSlotId() { return positionSlotId; }
     public Long getApplicantUserId() { return applicantUserId; }
+    public String getMessage() { return message; }
     public JoinRequestStatus getStatus() { return status; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

@@ -128,6 +128,8 @@ CREATE TABLE join_requests (
   position_slot_id BIGINT NOT NULL,
   applicant_user_id BIGINT NOT NULL,
 
+  message VARCHAR(500),
+
   status ENUM('APPLIED','ACCEPTED','REJECTED','CANCELED') NOT NULL,
 
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
