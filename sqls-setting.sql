@@ -11,6 +11,7 @@ SET time_zone = '+09:00';
 -- DROP TABLE 순서는 FK 역순
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS join_requests;
+DROP TABLE IF EXISTS team_chat_messages;
 DROP TABLE IF EXISTS team_members;
 DROP TABLE IF EXISTS position_slots;
 DROP TABLE IF EXISTS team_regions;
@@ -189,7 +190,28 @@ CREATE TABLE join_requests (
     REFERENCES position_slots(team_id, id)
     ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-  
+
+-- =========================
+-- 7) team_chat_messages
+-- =========================
+CREATE TABLE team_chat_messages (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  team_id BIGINT NOT NULL,
+  user_id BIGINT NOT NULL,
+  message VARCHAR(500) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_team_chat_messages_team_id (team_id),
+  KEY idx_team_chat_messages_user_id (user_id),
+  KEY idx_team_chat_messages_team_created_at (team_id, created_at),
+  CONSTRAINT fk_team_chat_messages_team
+    FOREIGN KEY (team_id) REFERENCES teams(id)
+    ON DELETE CASCADE,
+  CONSTRAINT fk_team_chat_messages_user
+    FOREIGN KEY (user_id) REFERENCES users(id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 show tables;
 
 select * from join_requests;
