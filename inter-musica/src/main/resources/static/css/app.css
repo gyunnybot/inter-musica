@@ -18,6 +18,23 @@
 
 /* 남은 슬롯 시각화 */
 .im-progress-sm { height: 10px; }
+.im-slot-track {
+  display: flex;
+  gap: 4px;
+  height: 10px;
+}
+
+.im-slot-track.im-slot-empty {
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 999px;
+}
+
+.im-slot-segment {
+  flex: 1 1 0;
+  background: #4dabf7;
+  border-radius: 999px;
+}
 
 /* 카드가 너무 빡빡해 보이지 않게 */
 .im-flat-card { border: 1px solid rgba(0,0,0,.08); }

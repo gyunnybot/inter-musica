@@ -192,11 +192,10 @@
         navItem("#/signup", "회원가입", "bi-person-plus")
       );
     } else {
-      if (!hasTeam()) {
-        navRight.append(
-          navItem("#/create-team", "팀 만들기", "bi-plus-circle"),
-        );
-      }
+      navRight.append(
+              navItem("#/create-team", "팀 만들기", "bi-plus-circle"),
+      );
+
       navRight.append(
         navItem("#/profile", me ? (me.name + " 님") : "내 프로필", "bi-person-circle"),
       );
@@ -808,11 +807,6 @@ async function viewMyTeam() {
     if (!requireAuth()) return;
     await ensureMe();
     await ensureMyTeam(true);
-    if (hasTeam()) {
-      IM.showToast("이미 팀에 속해 있어 팀을 생성할 수 없습니다.", "warning");
-      window.location.hash = "#/my-team";
-      return;
-    }
 
     renderShell("팀 만들기", `
       <div class="row justify-content-center">
@@ -1047,10 +1041,14 @@ async function viewMyTeam() {
       ? Number(statMap[String(p.id)] || 0)
       : 0;
     const remain = Math.max(0, total - used);
-    const pct = total ? Math.round((used / total) * 100) : 0;
+
+    const slotSegments = remain
+          ? Array.from({ length: remain }, () => `<span class="im-slot-segment"></span>`).join("")
+          : "";
+
     const slotHtml = `
-      <div class="progress im-progress-sm">
-        <div class="progress-bar" style="width:${pct}%"></div>
+      <div class="im-slot-track ${remain ? "" : "im-slot-empty"}">
+              ${slotSegments}
       </div>
       <div class="small muted mt-1">남은 자리: ${remain}</div>
     `;
