@@ -193,9 +193,8 @@
       );
     } else {
       navRight.append(
-              navItem("#/create-team", "팀 만들기", "bi-plus-circle"),
+        navItem("#/create-team", "팀 만들기", "bi-plus-circle"),
       );
-
       navRight.append(
         navItem("#/profile", me ? (me.name + " 님") : "내 프로필", "bi-person-circle"),
       );
@@ -567,117 +566,101 @@ async function loadTeams(region) {
                 </div>
               </div>
 
-              <button class="btn btn-dark mt-3" id="btnSave">
-                <i class="bi bi-check2-circle me-1"></i>저장
+              <button class="btn btn-dark mt-3" id="btnSaveProfile">
+                <i class="bi bi-save me-1"></i>저장
               </button>
-            </div>
-          </div>
-
-          <div class="card mt-3">
-            <div class="card-body">
-              <div class="fw-semibold mb-2">최근 지원</div>
-              <div class="small-help mb-2">최근 지원한 팀/포지션과 상태를 확인할 수 있어요.</div>
-              <div id="jrList" class="vstack gap-2"></div>
             </div>
           </div>
         </div>
       </div>
     `);
 
-    document.getElementById("btnSave").addEventListener("click", async () => {
+    document.getElementById("btnSaveProfile").addEventListener("click", async () => {
       const name = document.getElementById("name").value.trim();
       const instrument = document.getElementById("instrument").value;
       const level = document.getElementById("level").value;
       const region = document.getElementById("region").value;
 
-      await IM.apiFetch("/profiles/me", { method: "PATCH", body: { name, instrument, level, region } });
-      IM.showToast("저장되었습니다.", "success");
+      await IM.apiFetch("/profiles/me", {
+        method: "PUT",
+        body: { name, instrument, level, region }
+      });
+
       state.me = null;
       await ensureMe();
-      window.location.hash = "#/profile";
+      IM.showToast("저장되었습니다.", "success");
     });
-
-    renderMyJoinRequests();
   }
 
-async function renderMyJoinRequests() {
-  const box = document.getElementById("jrList");
-  if (!box) return;
+  async function renderMyJoinRequests() {
+    const box = document.getElementById("myJoinRequests");
+    if (!box) return;
 
-  box.innerHTML = `<div class="muted">불러오는 중...</div>`;
+    box.innerHTML = `<div class="muted">불러오는 중...</div>`;
 
-  let list = [];
-  try {
-    const raw = await IM.apiFetch("/join-requests/me", { auth: true, silent: true });
-    list = asArray(raw);
-  } catch (e) {
-    box.innerHTML = `<div class="text-danger small">지원 내역을 불러오지 못했어요.</div>`;
-    return;
-  }
+    let list = [];
+    try {
+      list = await IM.apiFetch("/join-requests/me", { auth: true });
+    } catch {
+      list = [];
+    }
 
-  if (!list.length) {
-    box.innerHTML = `
-      <div class="border rounded-3 p-3">
-        <div class="fw-semibold">최근 지원 내역이 없습니다</div>
-        <div class="muted small mt-1">팀 찾기에서 원하는 팀에 지원해보세요.</div>
-        <a class="btn btn-sm btn-dark mt-3" href="#/teams">
-          <i class="bi bi-search me-1"></i>팀 찾기
-        </a>
-      </div>
-    `;
-    return;
-  }
+    if (!list.length) {
+      box.innerHTML = `<div class="muted">지원 이력이 없습니다.</div>`;
+      return;
+    }
 
-  box.innerHTML = list.map(jr => {
-    const statusText = fmtEnum("joinStatus", jr.status) || jr.status;
-    const teamName = jr.team?.teamName || "-";
-    const region = jr.team ? formatPracticeRegions(jr.team) : "-";
-    const instrument = jr.position?.instrument ? (fmtEnum("instrument", jr.position.instrument) || jr.position.instrument) : "-";
-    const levelMin = jr.position?.requiredLevelMin ? (fmtEnum("level", jr.position.requiredLevelMin) || jr.position.requiredLevelMin) : "-";
-    const createdAt = fmtDate(jr.createdAt);
-    const cancelBtn = jr.cancellable
-      ? `<button class="btn btn-sm btn-outline-danger" data-jr-cancel="${jr.id}">
-           <i class="bi bi-x-circle me-1"></i>취소
-         </button>`
-      : `<span class="muted small">-</span>`;
+    box.innerHTML = list.map(jr => {
+      const teamName = jr.team?.teamName || "-";
+      const region = formatPracticeRegions(jr.team || {});
+      const instrument = fmtEnum("instrument", jr.position?.instrument || jr.instrument) || (jr.position?.instrument || jr.instrument || "-");
+      const levelMin = fmtEnum("level", jr.position?.requiredLevelMin || jr.requiredLevelMin) || (jr.position?.requiredLevelMin || jr.requiredLevelMin || "-");
+      const statusText = fmtEnum("joinStatus", jr.status) || jr.status;
+      const createdAt = fmtDate(jr.createdAt);
 
-    return `
-      <div class="border rounded-3 p-3">
-        <div class="d-flex align-items-start justify-content-between gap-2">
-          <div class="min-w-0">
-            <div class="fw-semibold text-truncate">${IM.escapeHtml(teamName)}</div>
-            <div class="muted small mt-1">
-              ${IM.escapeHtml(region)} · ${IM.escapeHtml(instrument)} · 최소 ${IM.escapeHtml(levelMin)}
+      const cancelBtn = jr.status === "APPLIED"
+        ? `<button class="btn btn-sm btn-outline-danger" data-jr-cancel="${jr.id}">
+            <i class="bi bi-x-circle me-1"></i>취소
+           </button>`
+        : `<span class="muted small">-</span>`;
+
+      return `
+        <div class="border rounded-3 p-3">
+          <div class="d-flex align-items-start justify-content-between gap-2">
+            <div class="min-w-0">
+              <div class="fw-semibold text-truncate">${IM.escapeHtml(teamName)}</div>
+              <div class="muted small mt-1">
+                ${IM.escapeHtml(region)} · ${IM.escapeHtml(instrument)} · 최소 ${IM.escapeHtml(levelMin)}
+              </div>
+              <div class="small mt-2">
+                <span class="badge text-bg-light">${IM.escapeHtml(statusText)}</span>
+                <span class="muted ms-2">${IM.escapeHtml(createdAt)}</span>
+              </div>
             </div>
-            <div class="small mt-2">
-              <span class="badge text-bg-light">${IM.escapeHtml(statusText)}</span>
-              <span class="muted ms-2">${IM.escapeHtml(createdAt)}</span>
-            </div>
-          </div>
-          <div class="d-flex flex-column align-items-end gap-2">
-            ${cancelBtn}
-            ${jr.team?.id ? `<a class="btn btn-sm btn-outline-dark" href="#/teams/${jr.team.id}">
+            <div class="d-flex flex-column align-items-end gap-2">
+              ${cancelBtn}
+              ${jr.team?.id ? `<a class="btn btn-sm btn-outline-dark" href="#/teams/${jr.team.id}">
                 상세 <i class="bi bi-chevron-right ms-1"></i>
               </a>` : ``}
+            </div>
           </div>
         </div>
-      </div>
-    `;
-  }).join("");
+      `;
+    }).join("");
 
-  box.querySelectorAll("[data-jr-cancel]").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const id = btn.getAttribute("data-jr-cancel");
-      try {
-        await IM.apiFetch(`/join-requests/${id}/cancel`, { method: "POST" });
-        IM.showToast("지원이 취소되었습니다.", "secondary");
-        renderMyJoinRequests();
-      } catch (e) {
-        IM.showToast(e?.message || "취소에 실패했습니다.", "danger");
-      }
+    box.querySelectorAll("[data-jr-cancel]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-jr-cancel");
+        try {
+          await IM.apiFetch(`/join-requests/${id}/cancel`, { method: "POST" });
+          IM.showToast("지원이 취소되었습니다.", "secondary");
+          renderMyJoinRequests();
+        } catch (e) {
+          IM.showToast(e?.message || "취소에 실패했습니다.", "danger");
+        }
+      });
     });
-  });
-}
+  }
 
 
 async function viewMyTeam() {
@@ -711,84 +694,90 @@ async function viewMyTeam() {
     `);
   };
 
-  const renderTeam = (team) => {
-    const teamId = pickTeamId(team);
-    if (!teamId) return renderNoTeam();
+  const renderTeams = (teams) => {
+    if (!teams.length) {
+      renderNoTeam();
+      return;
+    }
 
-    renderShell("내 팀", `
-      <div class="row justify-content-center">
-        <div class="col-lg-8">
-          <div class="card">
-            <div class="card-body">
+    const cards = teams.map(team => {
+      const teamId = pickTeamId(team);
+      const isLeader = Number(team.leaderUserId) === Number(me?.userId);
+      const roleLabel = isLeader ? "팀장" : "팀원";
+      const roleBadge = isLeader ? "text-bg-dark" : "text-bg-secondary";
+
+      return `
+        <div class="col-lg-6">
+          <div class="card h-100">
+            <div class="card-body d-flex flex-column">
               <div class="d-flex align-items-center justify-content-between mb-2">
-                <div class="fw-semibold">${IM.escapeHtml(team.teamName || "(이름 없음)")}</div>
+                <div class="fw-semibold text-truncate">${IM.escapeHtml(team.teamName || "(이름 없음)")}</div>
+                <span class="badge ${roleBadge}">${roleLabel}</span>
               </div>
-
               <div class="mb-1">
                 <span class="muted">연습 지역</span> :
                 ${IM.escapeHtml(formatPracticeRegions(team))}
               </div>
-
               <div class="mb-1">
                 <span class="muted">팀장</span> :
                 ${IM.escapeHtml(team.leaderName || me?.name || "-")}
               </div>
-
               <div class="mb-1">
                 <span class="muted">생성일</span> :
                 ${IM.escapeHtml(fmtDate(team.createdAt))}
               </div>
-
               <div class="mt-2">
                 <div class="muted small">메모</div>
                 <div>${IM.escapeHtml(team.practiceNote || "-")}</div>
               </div>
-
-              <div class="d-flex gap-2 mt-3">
-                <a class="btn btn-dark" href="#/teams/${IM.escapeHtml(teamId)}">
+              <div class="mt-auto pt-3">
+                <a class="btn btn-dark w-100" href="#/teams/${IM.escapeHtml(teamId)}">
                   <i class="bi bi-box-arrow-up-right me-1"></i>팀 상세 보기
                 </a>
               </div>
             </div>
           </div>
         </div>
+      `;
+    }).join("");
+
+    renderShell("내 팀", `
+      <div class="row g-3">
+        ${cards}
       </div>
     `);
   };
 
   // 팀장(내가 만든 팀) fallback: /teams 목록에서 leaderUserId로 내 팀 찾기
-  async function findLeaderTeam() {
+  async function findLeaderTeams() {
     if (!me?.userId) return null;
     const list = asArray(await IM.apiFetch("/teams", { auth: true, silent: true }));
-    const mine = list
-      .filter(t => Number(t.leaderUserId) === Number(me.userId))
-      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-    return mine[0] || null;
+    return list.filter(t => Number(t.leaderUserId) === Number(me.userId));
   }
 
   try {
     // 1) 우선 "내가 속한 팀" 조회 (팀원/팀장 모두 여기서 내려오면 가장 좋음)
     const raw = await IM.apiFetch("/teams/me", { auth: true, silent: true });
-    let team = Array.isArray(raw) ? raw[0] : raw;
+    const fromMe = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+    const leaderTeams = await findLeaderTeams();
+    const allTeams = [...fromMe, ...leaderTeams].filter(team => pickTeamId(team));
 
-    // 2) /teams/me가 비어있으면 → "내가 만든 팀"으로 fallback
-    if (!pickTeamId(team)) {
-      const leaderTeam = await findLeaderTeam();
-      if (leaderTeam) team = leaderTeam;
+    const unique = [];
+    const seen = new Set();
+    for (const team of allTeams) {
+      const teamId = String(pickTeamId(team));
+      if (seen.has(teamId)) continue;
+      seen.add(teamId);
+      unique.push(team);
     }
 
-    if (!pickTeamId(team)) {
-      renderNoTeam();
-      return;
-    }
-
-    renderTeam(team);
+    renderTeams(unique);
   } catch (e) {
     // 어떤 형태의 실패든: 우선 팀장 fallback을 시도하고, 실패하면 빈 상태로 처리 (라우터 에러 화면 방지)
     try {
-      const leaderTeam = await findLeaderTeam();
-      if (leaderTeam) {
-        renderTeam(leaderTeam);
+      const leaderTeams = await findLeaderTeams();
+      if (leaderTeams.length) {
+        renderTeams(leaderTeams);
         return;
       }
     } catch (_) {
@@ -1041,14 +1030,15 @@ async function viewMyTeam() {
       ? Number(statMap[String(p.id)] || 0)
       : 0;
     const remain = Math.max(0, total - used);
-
-    const slotSegments = remain
-          ? Array.from({ length: remain }, () => `<span class="im-slot-segment"></span>`).join("")
-          : "";
-
+    const slotSegments = total
+      ? Array.from({ length: total }, (_, idx) => {
+        const isRemaining = idx < remain;
+        return `<span class="im-slot-segment ${isRemaining ? "is-remaining" : "is-used"}"></span>`;
+      }).join("")
+      : "";
     const slotHtml = `
-      <div class="im-slot-track ${remain ? "" : "im-slot-empty"}">
-              ${slotSegments}
+      <div class="im-slot-track ${total ? "" : "im-slot-empty"}">
+        ${slotSegments || `<span class="muted small">-</span>`}
       </div>
       <div class="small muted mt-1">남은 자리: ${remain}</div>
     `;

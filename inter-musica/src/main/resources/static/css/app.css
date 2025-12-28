@@ -20,20 +20,30 @@
 .im-progress-sm { height: 10px; }
 .im-slot-track {
   display: flex;
-  gap: 4px;
-  height: 10px;
+  height: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 999px;
+  overflow: hidden;
 }
 
 .im-slot-track.im-slot-empty {
-  background: transparent;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 999px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
 }
 
 .im-slot-segment {
   flex: 1 1 0;
+  background: transparent;
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.im-slot-segment:last-child {
+  border-right: none;
+}
+
+.im-slot-segment.is-remaining {
   background: #4dabf7;
-  border-radius: 999px;
 }
 
 /* 카드가 너무 빡빡해 보이지 않게 */
