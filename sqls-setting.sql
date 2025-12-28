@@ -59,6 +59,8 @@ CREATE TABLE teams (
   team_name VARCHAR(80) NOT NULL,
   practice_region VARCHAR(30) NOT NULL,      -- DB는 VARCHAR (A안)
   practice_note TEXT NULL,
+  core_time_start TIME NULL,
+  core_time_end TIME NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_teams_leader_user_id (leader_user_id),

@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,10 +26,19 @@ public class TeamService {
     }
 
     @Transactional
-    public Long createTeam(long leaderUserId, String teamName, String practiceRegionRaw, String practiceNote) {
+    public Long createTeam(long leaderUserId, String teamName, String practiceRegionRaw, String practiceNote,
+                           LocalTime coreTimeStart, LocalTime coreTimeEnd) {
         String practiceRegion = Region.from(practiceRegionRaw).name();
 
-        TeamJpaEntity team = new TeamJpaEntity(leaderUserId, teamName, practiceRegion, practiceNote);
+        TeamJpaEntity team = new TeamJpaEntity(
+                leaderUserId,
+                teamName,
+                practiceRegion,
+                practiceNote,
+                coreTimeStart,
+                coreTimeEnd
+        );
+
         teamJpaRepository.save(team);
 
         // 팀장도 팀에 포함

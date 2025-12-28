@@ -2,6 +2,7 @@ package kr.co.inter_musica.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "teams")
@@ -23,16 +24,25 @@ public class TeamJpaEntity {
     @Column(name="practice_note")
     private String practiceNote;
 
+    @Column(name="core_time_start")
+    private LocalTime coreTimeStart;
+
+    @Column(name="core_time_end")
+    private LocalTime coreTimeEnd;
+
     @Column(name="created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     protected TeamJpaEntity() {}
 
-    public TeamJpaEntity(Long leaderUserId, String teamName, String practiceRegion, String practiceNote) {
+    public TeamJpaEntity(Long leaderUserId, String teamName, String practiceRegion, String practiceNote,
+                         LocalTime coreTimeStart, LocalTime coreTimeEnd) {
         this.leaderUserId = leaderUserId;
         this.teamName = teamName;
         this.practiceRegion = practiceRegion;
         this.practiceNote = practiceNote;
+        this.coreTimeStart = coreTimeStart;
+        this.coreTimeEnd = coreTimeEnd;
     }
 
     @PrePersist
@@ -45,6 +55,8 @@ public class TeamJpaEntity {
     public String getTeamName() { return teamName; }
     public String getPracticeRegion() { return practiceRegion; }
     public String getPracticeNote() { return practiceNote; }
+    public LocalTime getCoreTimeStart() { return coreTimeStart; }
+    public LocalTime getCoreTimeEnd() { return coreTimeEnd; }
     public Instant getCreatedAt() { return createdAt; }
 
     public void setTeamName(String teamName) { this.teamName = teamName; }

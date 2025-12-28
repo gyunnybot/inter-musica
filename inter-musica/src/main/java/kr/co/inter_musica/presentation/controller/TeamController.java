@@ -36,7 +36,9 @@ public class TeamController {
                 leaderUserId,
                 createTeamRequest.getTeamName(),
                 createTeamRequest.getPracticeRegion(),
-                createTeamRequest.getPracticeNote()
+                createTeamRequest.getPracticeNote(),
+                createTeamRequest.getCoreTimeStart(),
+                createTeamRequest.getCoreTimeEnd()
         );
 
         return ResponseEntity.ok(new CreateTeamResponse(teamId));
@@ -54,6 +56,8 @@ public class TeamController {
                         team.getTeamName(),
                         team.getPracticeRegion(),
                         team.getPracticeNote(),
+                        team.getCoreTimeStart(),
+                        team.getCoreTimeEnd(),
                         team.getLeaderUserId(),
                         team.getCreatedAt()
                     )
@@ -77,6 +81,8 @@ public class TeamController {
                 team.getTeamName(),
                 team.getPracticeRegion(),
                 team.getPracticeNote(),
+                team.getCoreTimeStart(),
+                team.getCoreTimeEnd(),
                 team.getLeaderUserId(),
                 team.getCreatedAt()
         );
@@ -99,6 +105,8 @@ public class TeamController {
                 team.getTeamName(),
                 team.getPracticeRegion(),
                 team.getPracticeNote(),
+                team.getCoreTimeStart(),
+                team.getCoreTimeEnd(),
                 team.getLeaderUserId(),
                 team.getCreatedAt()
         );
