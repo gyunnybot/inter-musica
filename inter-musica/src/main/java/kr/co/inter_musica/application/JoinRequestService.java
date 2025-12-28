@@ -20,22 +20,26 @@ public class JoinRequestService {
     private final JoinRequestJpaRepository joinRequestJpaRepository;
     private final ProfileJpaRepository profileJpaRepository;
     private final TeamMemberJpaRepository teamMemberJpaRepository;
+    private final UserJpaRepository userJpaRepository;
+    private final EmailNotificationService emailNotificationService;
 
     private final JoinRequestPolicy policy = new JoinRequestPolicy();
 
-    @Autowired
     public JoinRequestService(TeamJpaRepository teamJpaRepository,
                               PositionSlotJpaRepository positionSlotJpaRepository,
                               JoinRequestJpaRepository joinRequestJpaRepository,
                               ProfileJpaRepository profileJpaRepository,
-                              TeamMemberJpaRepository teamMemberJpaRepository) {
-
+                              TeamMemberJpaRepository teamMemberJpaRepository,
+                              UserJpaRepository userJpaRepository,
+                              EmailNotificationService emailNotificationService
+    ) {
         this.teamJpaRepository = teamJpaRepository;
         this.positionSlotJpaRepository = positionSlotJpaRepository;
         this.joinRequestJpaRepository = joinRequestJpaRepository;
         this.profileJpaRepository = profileJpaRepository;
         this.teamMemberJpaRepository = teamMemberJpaRepository;
-
+        this.userJpaRepository = userJpaRepository;
+        this.emailNotificationService = emailNotificationService;
     }
 
     @Transactional
@@ -49,11 +53,6 @@ public class JoinRequestService {
         // 포지션 슬롯 검증
         if (!slot.getTeamId().equals(teamId)) {
             throw new ApiException(ErrorCode.POSITION_NOT_FOUND, "해당 팀에 속한 포지션이 아닙니다.");
-        }
-
-        // 팀장인지 여부 확인
-        if (teamJpaRepository.existsByLeaderUserId(currentUserId)) {
-            throw new ApiException(ErrorCode.JOIN_REQUEST_FORBIDDEN, "팀장은 지원할 수 없습니다.");
         }
 
         // 프로필 필수 (사실 없는 에러)
@@ -180,5 +179,9 @@ public class JoinRequestService {
                     )
             );
         }
+
+        userJpaRepository.findById(joinRequestJpaEntity.getApplicantUserId())
+                .ifPresent(user ->
+                        emailNotificationService.sendTeamConfirmedEmail(user.getEmail(), team.getTeamName()));
     }
 }

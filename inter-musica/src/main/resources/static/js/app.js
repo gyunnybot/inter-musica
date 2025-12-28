@@ -942,6 +942,22 @@ async function viewMyTeam() {
             </div>
           </div>
 
+          <div class="card mt-3" id="teamChatCard">
+                      <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                          <div class="fw-semibold">팀 톡방</div>
+                          <button class="btn btn-sm btn-outline-dark" id="btnReloadChat">
+                            <i class="bi bi-arrow-clockwise me-1"></i>새로고침
+                          </button>
+                        </div>
+                        <div id="teamChatBody" class="im-chat-body muted">불러오는 중...</div>
+                        <div class="input-group mt-2">
+                          <input class="form-control" id="teamChatInput" placeholder="메시지를 입력하세요" maxlength="500"/>
+                          <button class="btn btn-dark" id="btnSendChat"><i class="bi bi-send me-1"></i>보내기</button>
+                        </div>
+                        <div class="small-help mt-2" id="teamChatHelp">팀 멤버만 이용 가능</div>
+                      </div>
+                    </div>
 
         </div>
       </div>
@@ -980,14 +996,13 @@ async function viewMyTeam() {
         if (!requireAuth()) return;
         await ensureMyTeam();
         const myTeamId = pickTeamId(state.myTeam);
-        if (myTeamId && Number(myTeamId) !== Number(teamId)) {
+        const isMyTeamLeader = state.myTeam && Number(state.myTeam.leaderUserId) === Number(state.me?.userId);
+
+        if (myTeamId && Number(myTeamId) !== Number(teamId) && !isMyTeamLeader) {
           IM.showToast("이미 다른 팀에 합류되어 있어 지원할 수 없습니다.", "warning");
           return;
         }
-        if (isLeader) {
-          IM.showToast("팀장은 지원할 수 없습니다.", "warning");
-          return;
-        }
+
         const positionId = btn.getAttribute("data-apply");
         const res = await IM.apiFetch(`/teams/${teamId}/positions/${positionId}/join-requests`, { method: "POST" });
         IM.addMyJoinRequestId(res);
@@ -1018,6 +1033,8 @@ async function viewMyTeam() {
         });
       });
     }
+
+    initTeamChat(teamId);
   }
 
   function positionRowHtml(p, teamId, isLeader, me, team, statMap) {
@@ -1093,6 +1110,82 @@ async function viewMyTeam() {
       </div>
     `;
   }
+
+  function renderChatMessages(list) {
+      if (!list.length) {
+        return `<div class="muted">아직 메시지가 없습니다.</div>`;
+      }
+
+      return list.map(msg => `
+        <div class="im-chat-message">
+          <div class="d-flex justify-content-between">
+            <div class="fw-semibold">${IM.escapeHtml(msg.senderName || "-")}</div>
+            <div class="small muted">${IM.escapeHtml(fmtDate(msg.createdAt))}</div>
+          </div>
+          <div class="mt-1">${IM.escapeHtml(msg.message || "")}</div>
+        </div>
+      `).join("");
+    }
+
+    async function initTeamChat(teamId) {
+      const bodyEl = document.getElementById("teamChatBody");
+      const inputEl = document.getElementById("teamChatInput");
+      const sendBtn = document.getElementById("btnSendChat");
+      const reloadBtn = document.getElementById("btnReloadChat");
+      const helpEl = document.getElementById("teamChatHelp");
+      if (!bodyEl || !inputEl || !sendBtn || !reloadBtn) return;
+
+      const setEnabled = (enabled) => {
+        inputEl.disabled = !enabled;
+        sendBtn.disabled = !enabled;
+      };
+
+      async function loadMessages() {
+        bodyEl.innerHTML = `<div class="muted">불러오는 중...</div>`;
+        try {
+          const list = await IM.apiFetch(`/teams/${teamId}/chat`, { auth: true, silent: true });
+          bodyEl.innerHTML = renderChatMessages(list || []);
+          setEnabled(true);
+          if (helpEl) helpEl.textContent = "팀 멤버만 이용 가능";
+        } catch (e) {
+          if (e && e.status === 403) {
+            bodyEl.innerHTML = `<div class="muted">팀 멤버만 이용할 수 있습니다.</div>`;
+            setEnabled(false);
+            if (helpEl) helpEl.textContent = "팀 멤버만 이용 가능";
+            return;
+          }
+          bodyEl.innerHTML = `<div class="text-danger">불러오기 실패: ${IM.escapeHtml(e.message || "")}</div>`;
+          setEnabled(false);
+          if (helpEl) helpEl.textContent = "오류가 발생했습니다.";
+        }
+      }
+
+      reloadBtn.addEventListener("click", async () => {
+        await loadMessages();
+      });
+
+      sendBtn.addEventListener("click", async () => {
+        const text = inputEl.value.trim();
+        if (!text) return;
+        try {
+          sendBtn.disabled = true;
+          await IM.apiFetch(`/teams/${teamId}/chat`, { method: "POST", body: { message: text } });
+          inputEl.value = "";
+          await loadMessages();
+        } finally {
+          sendBtn.disabled = false;
+        }
+      });
+
+      inputEl.addEventListener("keydown", async (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          sendBtn.click();
+        }
+      });
+
+      await loadMessages();
+    }
 
   async function openProfileModal(userId) {
     const modalEl = document.getElementById("profileModal");

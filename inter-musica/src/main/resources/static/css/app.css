@@ -21,3 +21,21 @@
 
 /* 카드가 너무 빡빡해 보이지 않게 */
 .im-flat-card { border: 1px solid rgba(0,0,0,.08); }
+
+.im-chat-body {
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+}
+
+.im-chat-message {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.im-chat-message:last-child {
+  border-bottom: none;
+}

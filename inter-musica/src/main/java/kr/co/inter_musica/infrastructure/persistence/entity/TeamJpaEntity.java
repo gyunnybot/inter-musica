@@ -56,6 +56,10 @@ public class TeamJpaEntity {
         this.coreTimeEnd = coreTimeEnd;
     }
 
+    public TeamJpaEntity(Long leaderUserId, String teamName, String practiceRegion, String practiceNote) {
+        this(leaderUserId, teamName, practiceRegion, practiceNote, null, null);
+    }
+
     @PrePersist
     void prePersist() {
         this.createdAt = Instant.now();
