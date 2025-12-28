@@ -55,6 +55,7 @@
     me: null,     // ProfileResponse
     loadingMe: false,
     myTeam: undefined, // undefined: unknown, null: no team, object: team
+    myTeams: undefined, // array or null
     loadingMyTeam: false
   };
 
@@ -109,7 +110,7 @@
 
   async function ensureMe() {
     const token = IM.getToken();
-    if (!token) { state.me = null; state.myTeam = undefined; return null; }
+    if (!token) { state.me = null; state.myTeam = undefined; state.myTeams = undefined; return null; }
     if (state.me) return state.me;
     if (state.loadingMe) return state.me;
 
@@ -143,6 +144,7 @@
     const token = IM.getToken();
     if (!token) {
       state.myTeam = undefined;
+      state.myTeams = undefined;
       state.loadingMyTeam = false;
       return null;
     }
@@ -152,15 +154,19 @@
 
     state.loadingMyTeam = true;
     try {
-      const t = await IM.apiFetch("/teams/me", { auth: true, silent: true });
-      state.myTeam = t || null;
+      const res = await IM.apiFetch("/teams/me", { auth: true, silent: true });
+      const list = Array.isArray(res) ? res : (res ? [res] : []);
+      state.myTeams = list.length ? list : null;
+      state.myTeam = list.length ? list[0] : null;
     } catch (e) {
       const status = e?.status ?? e?.statusCode ?? e?.httpStatus ?? e?.response?.status ?? e?.data?.status;
       if (status === 404 || status === 204) {
         state.myTeam = null;
+        state.myTeams = null;
       } else {
         // 네트워크/서버 오류 등은 'unknown'으로 두고 UI를 과도하게 막지 않음
         if (state.myTeam === undefined) state.myTeam = undefined;
+        if (state.myTeams === undefined) state.myTeams = undefined;
       }
     } finally {
       state.loadingMyTeam = false;
@@ -208,6 +214,7 @@
         IM.setToken(null);
         state.me = null;
         state.myTeam = undefined;
+        state.myTeams = undefined;
         renderNav();
         IM.showToast("로그아웃 되었습니다.", "secondary");
         window.location.hash = "#/login";
@@ -432,6 +439,7 @@ async function loadTeams(region) {
       IM.setToken(res.accessToken);
       state.me = null;
       state.myTeam = undefined;
+      state.myTeams = undefined;
       await ensureMe();
       IM.showToast("로그인 성공!", "success");
       window.location.hash = '#/teams';
@@ -566,8 +574,8 @@ async function loadTeams(region) {
                 </div>
               </div>
 
-              <button class="btn btn-dark mt-3" id="btnSaveProfile">
-                <i class="bi bi-save me-1"></i>저장
+              <button class="btn btn-dark mt-3" id="btnUpdateProfile">
+                <i class="bi bi-check2 me-1"></i>저장
               </button>
             </div>
           </div>
@@ -575,7 +583,7 @@ async function loadTeams(region) {
       </div>
     `);
 
-    document.getElementById("btnSaveProfile").addEventListener("click", async () => {
+    document.getElementById("btnUpdateProfile").addEventListener("click", async () => {
       const name = document.getElementById("name").value.trim();
       const instrument = document.getElementById("instrument").value;
       const level = document.getElementById("level").value;
@@ -586,67 +594,72 @@ async function loadTeams(region) {
         body: { name, instrument, level, region }
       });
 
+      IM.showToast("프로필이 업데이트되었습니다.", "success");
       state.me = null;
       await ensureMe();
-      IM.showToast("저장되었습니다.", "success");
+      viewProfile();
     });
   }
 
-  async function renderMyJoinRequests() {
-    const box = document.getElementById("myJoinRequests");
+  async function viewMyJoinRequests() {
+    if (!requireAuth()) return;
+
+    renderShell("지원 내역", `
+      <div class="row g-2 mb-3">
+        <div class="col-md-4">
+          <label class="form-label">상태 필터</label>
+          <select class="form-select" id="jrStatusFilter">
+            <option value="">전체</option>
+            ${ENUMS.joinStatus.map(s => `<option value="${s}">${fmtEnum("joinStatus", s)}</option>`).join("")}
+          </select>
+        </div>
+      </div>
+
+      <div id="jrList" class="row g-3">
+        <div class="muted">불러오는 중...</div>
+      </div>
+    `);
+
+    const statusSel = document.getElementById("jrStatusFilter");
+    statusSel.addEventListener("change", () => renderMyJoinRequests(statusSel.value));
+
+    await renderMyJoinRequests("");
+  }
+
+  async function renderMyJoinRequests(status) {
+    const list = await IM.apiFetch(`/join-requests/me${status ? `?status=${encodeURIComponent(status)}` : ""}`, { auth: true });
+    const box = document.getElementById("jrList");
     if (!box) return;
-
-    box.innerHTML = `<div class="muted">불러오는 중...</div>`;
-
-    let list = [];
-    try {
-      list = await IM.apiFetch("/join-requests/me", { auth: true });
-    } catch {
-      list = [];
-    }
 
     if (!list.length) {
       box.innerHTML = `<div class="muted">지원 이력이 없습니다.</div>`;
       return;
     }
 
-    box.innerHTML = list.map(jr => {
-      const teamName = jr.team?.teamName || "-";
-      const region = formatPracticeRegions(jr.team || {});
-      const instrument = fmtEnum("instrument", jr.position?.instrument || jr.instrument) || (jr.position?.instrument || jr.instrument || "-");
-      const levelMin = fmtEnum("level", jr.position?.requiredLevelMin || jr.requiredLevelMin) || (jr.position?.requiredLevelMin || jr.requiredLevelMin || "-");
-      const statusText = fmtEnum("joinStatus", jr.status) || jr.status;
-      const createdAt = fmtDate(jr.createdAt);
-
-      const cancelBtn = jr.status === "APPLIED"
-        ? `<button class="btn btn-sm btn-outline-danger" data-jr-cancel="${jr.id}">
-            <i class="bi bi-x-circle me-1"></i>취소
-           </button>`
-        : `<span class="muted small">-</span>`;
-
-      return `
-        <div class="border rounded-3 p-3">
-          <div class="d-flex align-items-start justify-content-between gap-2">
-            <div class="min-w-0">
-              <div class="fw-semibold text-truncate">${IM.escapeHtml(teamName)}</div>
-              <div class="muted small mt-1">
-                ${IM.escapeHtml(region)} · ${IM.escapeHtml(instrument)} · 최소 ${IM.escapeHtml(levelMin)}
-              </div>
-              <div class="small mt-2">
-                <span class="badge text-bg-light">${IM.escapeHtml(statusText)}</span>
-                <span class="muted ms-2">${IM.escapeHtml(createdAt)}</span>
-              </div>
+    box.innerHTML = list.map(jr => `
+      <div class="col-lg-6">
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="fw-semibold">${IM.escapeHtml(jr.team?.teamName || "")}</div>
+              <span class="badge text-bg-light">${IM.escapeHtml(fmtEnum("joinStatus", jr.status))}</span>
             </div>
-            <div class="d-flex flex-column align-items-end gap-2">
-              ${cancelBtn}
-              ${jr.team?.id ? `<a class="btn btn-sm btn-outline-dark" href="#/teams/${jr.team.id}">
-                상세 <i class="bi bi-chevron-right ms-1"></i>
-              </a>` : ``}
+            <div class="mt-2 small">
+              <span class="muted">포지션</span> : ${IM.escapeHtml(fmtEnum("instrument", jr.position?.instrument) || jr.position?.instrument || "-")}
+            </div>
+            <div class="small">
+              <span class="muted">지원일</span> : ${IM.escapeHtml(fmtDate(jr.createdAt))}
+            </div>
+            <div class="mt-2">
+              <a class="btn btn-sm btn-outline-dark" href="#/teams/${IM.escapeHtml(String(jr.team?.id))}">
+                팀 상세 보기
+              </a>
+              ${jr.cancellable ? `<button class="btn btn-sm btn-outline-danger ms-2" data-jr-cancel="${jr.id}">지원 취소</button>` : ""}
             </div>
           </div>
         </div>
-      `;
-    }).join("");
+      </div>
+    `).join("");
 
     box.querySelectorAll("[data-jr-cancel]").forEach(btn => {
       btn.addEventListener("click", async () => {
@@ -809,9 +822,16 @@ async function viewMyTeam() {
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">연습 지역</label>
-                  <select class="form-select" id="practiceRegions" multiple size="5">
-                    ${ENUMS.region.map(v => `<option value="${v}">${fmtEnum("region", v)}</option>`).join("")}
-                  </select>
+                  <div class="border rounded-3 p-2">
+                    ${ENUMS.region.map(v => `
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="${v}" id="practiceRegion-${v}">
+                        <label class="form-check-label" for="practiceRegion-${v}">
+                          ${fmtEnum("region", v)}
+                        </label>
+                      </div>
+                    `).join("")}
+                  </div>
                 </div>
                 <div class="col-12">
                   <label class="form-label">연습 메모(선택)</label>
@@ -830,7 +850,8 @@ async function viewMyTeam() {
 
     document.getElementById("btnCreate").addEventListener("click", async () => {
       const teamName = document.getElementById("teamName").value.trim();
-      const practiceRegions = Array.from(document.getElementById("practiceRegions").selectedOptions).map(opt => opt.value);
+      const practiceRegions = Array.from(document.querySelectorAll("input[id^='practiceRegion-']:checked"))
+        .map(input => input.value);
       const practiceNote = document.getElementById("practiceNote").value.trim();
 
       if (!practiceRegions.length) {
@@ -846,6 +867,7 @@ async function viewMyTeam() {
       IM.showToast("팀이 생성되었습니다.", "success");
       // 생성자는 자동으로 팀에 속한 상태이므로 UI에서도 팀 만들기 메뉴를 숨김
       state.myTeam = { id: res.teamId, teamId: res.teamId, leaderUserId: state.me?.userId, teamName, practiceRegions, practiceNote, createdAt: new Date().toISOString() };
+      state.myTeams = [state.myTeam];
       renderNav();
       window.location.hash = `#/teams/${res.teamId}`;
     });
@@ -971,25 +993,96 @@ async function viewMyTeam() {
           </div>
         </div>
       </div>
+
+      <!-- Apply modal -->
+      <div class="modal fade" id="applyModal" tabindex="-1">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">지원 소개글</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <label class="form-label">소개글</label>
+              <textarea class="form-control" id="applyMessage" rows="4" maxlength="500" placeholder="간단히 자신을 소개해 주세요."></textarea>
+              <div class="small muted mt-2">최대 500자</div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+              <button class="btn btn-dark" id="btnSubmitApply">지원하기</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Join message modal -->
+      <div class="modal fade" id="joinMessageModal" tabindex="-1">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="joinMessageTitle">소개글</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="joinMessageBody">
+              <div class="muted">불러오는 중...</div>
+            </div>
+          </div>
+        </div>
+      </div>
     `);
 
     // bind apply & leader buttons
+    let pendingApplyPositionId = null;
+    const applyModalEl = document.getElementById("applyModal");
+    const applyModal = applyModalEl ? new bootstrap.Modal(applyModalEl) : null;
+    const applyMessageEl = document.getElementById("applyMessage");
+    const applySubmitBtn = document.getElementById("btnSubmitApply");
+
+    if (applyModalEl) {
+      applyModalEl.addEventListener("hidden.bs.modal", () => {
+        pendingApplyPositionId = null;
+        if (applyMessageEl) applyMessageEl.value = "";
+      });
+    }
+
+    if (applySubmitBtn) {
+      applySubmitBtn.addEventListener("click", async () => {
+        if (!pendingApplyPositionId) return;
+        const message = applyMessageEl?.value?.trim();
+        applySubmitBtn.disabled = true;
+        try {
+          const res = await IM.apiFetch(`/teams/${teamId}/positions/${pendingApplyPositionId}/join-requests`, {
+            method: "POST",
+            body: { message: message || null }
+          });
+          IM.addMyJoinRequestId(res);
+          IM.showToast(`지원 완료! joinRequestId=${res}`, "success");
+          if (applyModal) applyModal.hide();
+        } finally {
+          applySubmitBtn.disabled = false;
+          if (applyMessageEl) applyMessageEl.value = "";
+          pendingApplyPositionId = null;
+        }
+      });
+    }
+
     document.querySelectorAll("[data-apply]").forEach(btn => {
       btn.addEventListener("click", async () => {
         if (!requireAuth()) return;
         await ensureMyTeam();
-        const myTeamId = pickTeamId(state.myTeam);
-        const isMyTeamLeader = state.myTeam && Number(state.myTeam.leaderUserId) === Number(state.me?.userId);
+        const myTeams = Array.isArray(state.myTeams) ? state.myTeams : (state.myTeam ? [state.myTeam] : []);
+        const myTeamIds = myTeams.map(t => String(pickTeamId(t)));
+        const isMemberOfOtherTeam = myTeamIds.some(id => id && id !== String(teamId));
+        const isLeaderOfOtherTeam = myTeams.some(t => Number(t.leaderUserId) === Number(state.me?.userId) && String(pickTeamId(t)) !== String(teamId));
 
-        if (myTeamId && Number(myTeamId) !== Number(teamId) && !isMyTeamLeader) {
+        if (isMemberOfOtherTeam && !isLeaderOfOtherTeam) {
           IM.showToast("이미 다른 팀에 합류되어 있어 지원할 수 없습니다.", "warning");
           return;
         }
 
-        const positionId = btn.getAttribute("data-apply");
-        const res = await IM.apiFetch(`/teams/${teamId}/positions/${positionId}/join-requests`, { method: "POST" });
-        IM.addMyJoinRequestId(res);
-        IM.showToast(`지원 완료! joinRequestId=${res}`, "success");
+        pendingApplyPositionId = btn.getAttribute("data-apply");
+        if (applyMessageEl) applyMessageEl.value = "";
+        if (applyModal) applyModal.show();
       });
     });
 
@@ -1030,6 +1123,15 @@ async function viewMyTeam() {
       ? Number(statMap[String(p.id)] || 0)
       : 0;
     const remain = Math.max(0, total - used);
+    const remainRatio = total ? (remain / total) : 0;
+    const slotStateClass = total
+      ? (remainRatio <= 0.2 ? "im-slot-danger" : remainRatio <= 0.4 ? "im-slot-warning" : "")
+      : "";
+    const slotTextClass = slotStateClass === "im-slot-danger"
+      ? "im-slot-text-danger"
+      : slotStateClass === "im-slot-warning"
+        ? "im-slot-text-warning"
+        : "";
     const slotSegments = total
       ? Array.from({ length: total }, (_, idx) => {
         const isRemaining = idx < remain;
@@ -1037,10 +1139,10 @@ async function viewMyTeam() {
       }).join("")
       : "";
     const slotHtml = `
-      <div class="im-slot-track ${total ? "" : "im-slot-empty"}">
+      <div class="im-slot-track ${total ? slotStateClass : "im-slot-empty"}">
         ${slotSegments || `<span class="muted small">-</span>`}
       </div>
-      <div class="small muted mt-1">남은 자리: ${remain}</div>
+      <div class="small muted mt-1 ${slotTextClass}">남은 자리: ${remain}</div>
     `;
 
     return `
@@ -1256,12 +1358,15 @@ async function viewMyTeam() {
         return;
       }
 
+      const messageById = new Map(list.map(jr => [String(jr.id), jr.message || ""]));
+
       bodyEl.innerHTML = `
         <div class="table-responsive">
           <table class="table align-middle">
             <thead>
               <tr>
                 <th>지원자</th>
+                <th>소개글</th>
                 <th>상태</th>
                 <th class="d-none d-md-table-cell">지원일</th>
                 <th class="text-end">처리</th>
@@ -1279,6 +1384,9 @@ async function viewMyTeam() {
                       <i class="bi bi-x me-1"></i>거절
                     </button>`
                   : `<span class="muted small">처리불가</span>`;
+                const memoButton = jr.message
+                  ? `<button class="btn btn-sm btn-outline-secondary" data-message="${jr.id}">보기</button>`
+                  : `<span class="muted small">없음</span>`;
                 return `
                   <tr>
                     <td>
@@ -1286,9 +1394,9 @@ async function viewMyTeam() {
                         ${IM.escapeHtml(nameOf(jr.applicantUserId) || `userId ${jr.applicantUserId}`)}
                       </button>
                     </td>
+                    <td>${memoButton}</td>
                     <td><span class="badge text-bg-light">${IM.escapeHtml(fmtEnum("joinStatus", jr.status))}</span></td>
                     <td class="d-none d-md-table-cell">${IM.escapeHtml(fmtDate(jr.createdAt))}</td>
-                    <td class="d-none d-md-table-cell">${IM.escapeHtml(fmtDate(jr.updatedAt))}</td>
                     <td class="text-end">${actions}</td>
                   </tr>
                 `;
@@ -1321,12 +1429,37 @@ async function viewMyTeam() {
           openProfileModal(uid);
         });
       });
+
+      bodyEl.querySelectorAll("[data-message]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-message");
+          const row = btn.closest("tr");
+          const name = row?.querySelector("[data-profile]")?.textContent?.trim() || "";
+          openJoinMessageModal(name, messageById.get(String(id)));
+        });
+      });
     }
 
     document.getElementById("btnReloadApplicants").onclick = load;
     statusSel.onchange = load;
 
     await load();
+  }
+
+  function openJoinMessageModal(applicantName, message) {
+    const modalEl = document.getElementById("joinMessageModal");
+    if (!modalEl) return;
+    const titleEl = document.getElementById("joinMessageTitle");
+    const bodyEl = document.getElementById("joinMessageBody");
+    if (titleEl) {
+      titleEl.textContent = applicantName ? `${applicantName}님의 소개글` : "소개글";
+    }
+    if (bodyEl) {
+      const sanitized = message ? IM.escapeHtml(message).replace(/\n/g, "<br>") : "";
+      bodyEl.innerHTML = sanitized ? `<div class="im-join-message">${sanitized}</div>` : `<div class="muted">소개글이 없습니다.</div>`;
+    }
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
   }
 
   function viewNotFound() {

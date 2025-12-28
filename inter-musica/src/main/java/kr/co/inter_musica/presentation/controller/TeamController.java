@@ -2,10 +2,10 @@ package kr.co.inter_musica.presentation.controller;
 
 import jakarta.validation.Valid;
 import kr.co.inter_musica.application.TeamService;
+import kr.co.inter_musica.domain.enums.ErrorCode;
+import kr.co.inter_musica.domain.exception.ApiException;
 import kr.co.inter_musica.infrastructure.persistence.entity.RegionJpaEntity;
 import kr.co.inter_musica.infrastructure.persistence.entity.TeamJpaEntity;
-import kr.co.inter_musica.domain.exception.ApiException;
-import kr.co.inter_musica.domain.enums.ErrorCode;
 import kr.co.inter_musica.domain.security.SecurityUtil;
 import kr.co.inter_musica.presentation.dto.team.CreateTeamRequest;
 import kr.co.inter_musica.presentation.dto.team.CreateTeamResponse;
@@ -69,25 +69,22 @@ public class TeamController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<TeamSummaryResponse> getMyTeam() {
+    public ResponseEntity<List<TeamSummaryResponse>> getMyTeam() {
         long userId = SecurityUtil.currentUserId();
 
-        TeamJpaEntity team = teamService.findMyTeam(userId);
-        if (team == null) {
-            throw new ApiException(ErrorCode.TEAM_NOT_FOUND, "속해있는 팀이 없습니다.");
-        }
-
-        TeamSummaryResponse response = new TeamSummaryResponse(
-                team.getId(),
-                team.getTeamName(),
-                team.getPracticeRegion(),
-                toPracticeRegionCodes(team),
-                team.getPracticeNote(),
-                team.getCoreTimeStart(),
-                team.getCoreTimeEnd(),
-                team.getLeaderUserId(),
-                team.getCreatedAt()
-        );
+        List<TeamSummaryResponse> response = teamService.findMyTeams(userId).stream()
+                .map(team -> new TeamSummaryResponse(
+                        team.getId(),
+                        team.getTeamName(),
+                        team.getPracticeRegion(),
+                        toPracticeRegionCodes(team),
+                        team.getPracticeNote(),
+                        team.getCoreTimeStart(),
+                        team.getCoreTimeEnd(),
+                        team.getLeaderUserId(),
+                        team.getCreatedAt()
+                ))
+                .toList();
 
         return ResponseEntity.ok(response);
     }

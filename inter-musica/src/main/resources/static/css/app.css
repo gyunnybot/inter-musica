@@ -46,6 +46,22 @@
   background: #4dabf7;
 }
 
+.im-slot-track.im-slot-warning .im-slot-segment.is-remaining {
+  background: #f59f00;
+}
+
+.im-slot-track.im-slot-danger .im-slot-segment.is-remaining {
+  background: #fa5252;
+}
+
+.im-slot-text-warning {
+  color: #f59f00;
+}
+
+.im-slot-text-danger {
+  color: #fa5252;
+}
+
 /* 카드가 너무 빡빡해 보이지 않게 */
 .im-flat-card { border: 1px solid rgba(0,0,0,.08); }
 

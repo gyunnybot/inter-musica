@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalTime;
 import java.util.*;
 
 @Service
@@ -85,20 +84,29 @@ public class TeamService {
     }
 
     @Transactional(readOnly = true)
-    public TeamJpaEntity findMyTeam(long userId) {
-        Optional<TeamJpaEntity> leaderTeam = teamJpaRepository.findTopByLeaderUserIdOrderByCreatedAtDesc(userId);
-
-        if (leaderTeam.isPresent()) {
-            return leaderTeam.get();
+    public List<TeamJpaEntity> findMyTeams(long userId) {
+        List<TeamMemberJpaEntity> memberships = teamMemberJpaRepository.findByUserIdOrderByJoinedAtDesc(userId);
+        if (memberships.isEmpty()) {
+            return List.of();
         }
 
-        Optional<TeamMemberJpaEntity> membership = teamMemberJpaRepository.findTopByUserIdOrderByJoinedAtDesc(userId);
+        List<Long> teamIds = memberships.stream()
+                .map(TeamMemberJpaEntity::getTeamId)
+                .distinct()
+                .toList();
 
-        if (membership.isEmpty()) {
-            return null;
+        Map<Long, TeamJpaEntity> teamMap = new HashMap<>();
+        teamJpaRepository.findAllById(teamIds).forEach(team -> teamMap.put(team.getId(), team));
+
+        List<TeamJpaEntity> ordered = new ArrayList<>();
+        for (Long teamId : teamIds) {
+            TeamJpaEntity team = teamMap.get(teamId);
+            if (team != null) {
+                ordered.add(team);
+            }
         }
 
-        return teamJpaRepository.findById(membership.get().getTeamId()).orElse(null);
+        return ordered;
     }
 
     private List<RegionJpaEntity> resolveRegions(List<String> regionCodes) {
