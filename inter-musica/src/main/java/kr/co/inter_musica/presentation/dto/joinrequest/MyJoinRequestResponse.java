@@ -3,6 +3,7 @@ package kr.co.inter_musica.presentation.dto.joinrequest;
 import kr.co.inter_musica.domain.enums.JoinRequestStatus;
 
 import java.time.Instant;
+import java.util.List;
 
 public class MyJoinRequestResponse {
     private Long id;
@@ -71,11 +72,13 @@ public class MyJoinRequestResponse {
         private Long id;
         private String teamName;
         private String practiceRegion;
+        private List<String> practiceRegions;
 
-        public TeamSummary(Long id, String teamName, String practiceRegion) {
+        public TeamSummary(Long id, String teamName, String practiceRegion, List<String> practiceRegions) {
             this.id = id;
             this.teamName = teamName;
             this.practiceRegion = practiceRegion;
+            this.practiceRegions = practiceRegions;
         }
 
         public Long getId() {
@@ -88,6 +91,10 @@ public class MyJoinRequestResponse {
 
         public String getPracticeRegion() {
             return practiceRegion;
+        }
+
+        public List<String> getPracticeRegions() {
+            return practiceRegions;
         }
     }
 

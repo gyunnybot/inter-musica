@@ -2,6 +2,7 @@ package kr.co.inter_musica.presentation.controller;
 
 import jakarta.validation.Valid;
 import kr.co.inter_musica.application.TeamService;
+import kr.co.inter_musica.infrastructure.persistence.entity.RegionJpaEntity;
 import kr.co.inter_musica.infrastructure.persistence.entity.TeamJpaEntity;
 import kr.co.inter_musica.domain.exception.ApiException;
 import kr.co.inter_musica.domain.enums.ErrorCode;
@@ -35,10 +36,9 @@ public class TeamController {
         Long teamId = teamService.createTeam(
                 leaderUserId,
                 createTeamRequest.getTeamName(),
-                createTeamRequest.getPracticeRegion(),
+                createTeamRequest.getPracticeRegions(),
                 createTeamRequest.getPracticeNote(),
-                createTeamRequest.getCoreTimeStart(),
-                createTeamRequest.getCoreTimeEnd()
+                createTeamRequest.getPracticeRegion()
         );
 
         return ResponseEntity.ok(new CreateTeamResponse(teamId));
@@ -55,6 +55,7 @@ public class TeamController {
                         team.getId(),
                         team.getTeamName(),
                         team.getPracticeRegion(),
+                        toPracticeRegionCodes(team),
                         team.getPracticeNote(),
                         team.getCoreTimeStart(),
                         team.getCoreTimeEnd(),
@@ -80,6 +81,7 @@ public class TeamController {
                 team.getId(),
                 team.getTeamName(),
                 team.getPracticeRegion(),
+                toPracticeRegionCodes(team),
                 team.getPracticeNote(),
                 team.getCoreTimeStart(),
                 team.getCoreTimeEnd(),
@@ -104,6 +106,7 @@ public class TeamController {
                 team.getId(),
                 team.getTeamName(),
                 team.getPracticeRegion(),
+                toPracticeRegionCodes(team),
                 team.getPracticeNote(),
                 team.getCoreTimeStart(),
                 team.getCoreTimeEnd(),
@@ -112,5 +115,15 @@ public class TeamController {
         );
 
         return ResponseEntity.ok(teamSummaryResponse);
+    }
+
+    private List<String> toPracticeRegionCodes(TeamJpaEntity team) {
+        if (team.getRegions() != null && !team.getRegions().isEmpty()) {
+            return team.getRegions().stream().map(RegionJpaEntity::getCode).toList();
+        }
+        if (team.getPracticeRegion() != null && !team.getPracticeRegion().isBlank()) {
+            return List.of(team.getPracticeRegion());
+        }
+        return List.of();
     }
 }

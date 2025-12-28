@@ -13,7 +13,9 @@ SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS join_requests;
 DROP TABLE IF EXISTS team_members;
 DROP TABLE IF EXISTS position_slots;
+DROP TABLE IF EXISTS team_regions;
 DROP TABLE IF EXISTS teams;
+DROP TABLE IF EXISTS regions;
 DROP TABLE IF EXISTS profiles;
 DROP TABLE IF EXISTS users;
 SET FOREIGN_KEY_CHECKS = 1;
@@ -67,6 +69,31 @@ CREATE TABLE teams (
   KEY idx_teams_practice_region (practice_region),
   CONSTRAINT fk_teams_leader_user
     FOREIGN KEY (leader_user_id) REFERENCES users(id)
+    ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+-- =========================
+-- 3-1) regions
+-- =========================
+CREATE TABLE regions (
+  region_code VARCHAR(30) NOT NULL,
+  PRIMARY KEY (region_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- =========================
+-- 3-2) team_regions
+-- =========================
+CREATE TABLE team_regions (
+  team_id BIGINT NOT NULL,
+  region_code VARCHAR(30) NOT NULL,
+  PRIMARY KEY (team_id, region_code),
+  KEY idx_team_regions_region_code (region_code),
+  CONSTRAINT fk_team_regions_team
+    FOREIGN KEY (team_id) REFERENCES teams(id)
+    ON DELETE CASCADE,
+  CONSTRAINT fk_team_regions_region
+    FOREIGN KEY (region_code) REFERENCES regions(region_code)
     ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 

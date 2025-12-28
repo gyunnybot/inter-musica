@@ -68,6 +68,19 @@
     return Array.isArray(v) ? v : [];
   }
 
+  function practiceRegionList(team) {
+      const list = asArray(team?.practiceRegions);
+      if (list.length) return list;
+      if (team?.practiceRegion) return [team.practiceRegion];
+      return [];
+  }
+
+  function formatPracticeRegions(team) {
+        const regions = practiceRegionList(team);
+        if (!regions.length) return "-";
+        return regions.map(r => fmtEnum("region", r) || r).join(", ");
+      }
+
   function h(tag, attrs = {}, children = []) {
     const el = document.createElement(tag);
     Object.entries(attrs).forEach(([k, v]) => {
@@ -310,7 +323,7 @@ async function loadTeams(region) {
     return `
       <tr>
         <td class="text-truncate">${IM.escapeHtml(t.teamName || "")}</td>
-        <td>${IM.escapeHtml(fmtEnum("region", t.practiceRegion) || t.practiceRegion || "-")}</td>
+        <td>${IM.escapeHtml(formatPracticeRegions(t))}</td>
         <td class="d-none d-lg-table-cell" id="teamSlot-${IM.escapeHtml(String(teamId))}">
           <span class="muted small">불러오는 중...</span>
         </td>
@@ -619,7 +632,7 @@ async function renderMyJoinRequests() {
   box.innerHTML = list.map(jr => {
     const statusText = fmtEnum("joinStatus", jr.status) || jr.status;
     const teamName = jr.team?.teamName || "-";
-    const region = jr.team?.practiceRegion ? (fmtEnum("region", jr.team.practiceRegion) || jr.team.practiceRegion) : "-";
+    const region = jr.team ? formatPracticeRegions(jr.team) : "-";
     const instrument = jr.position?.instrument ? (fmtEnum("instrument", jr.position.instrument) || jr.position.instrument) : "-";
     const levelMin = jr.position?.requiredLevelMin ? (fmtEnum("level", jr.position.requiredLevelMin) || jr.position.requiredLevelMin) : "-";
     const createdAt = fmtDate(jr.createdAt);
@@ -714,7 +727,7 @@ async function viewMyTeam() {
 
               <div class="mb-1">
                 <span class="muted">연습 지역</span> :
-                ${IM.escapeHtml(fmtEnum("region", team.practiceRegion) || team.practiceRegion || "-")}
+                ${IM.escapeHtml(formatPracticeRegions(team))}
               </div>
 
               <div class="mb-1">
@@ -813,7 +826,7 @@ async function viewMyTeam() {
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">연습 지역</label>
-                  <select class="form-select" id="practiceRegion">
+                  <select class="form-select" id="practiceRegions" multiple size="5">
                     ${ENUMS.region.map(v => `<option value="${v}">${fmtEnum("region", v)}</option>`).join("")}
                   </select>
                 </div>
@@ -834,17 +847,22 @@ async function viewMyTeam() {
 
     document.getElementById("btnCreate").addEventListener("click", async () => {
       const teamName = document.getElementById("teamName").value.trim();
-      const practiceRegion = document.getElementById("practiceRegion").value;
+      const practiceRegions = Array.from(document.getElementById("practiceRegions").selectedOptions).map(opt => opt.value);
       const practiceNote = document.getElementById("practiceNote").value.trim();
+
+      if (!practiceRegions.length) {
+              IM.showToast("연습 지역을 선택해 주세요.", "warning");
+              return;
+            }
 
       const res = await IM.apiFetch("/teams", {
         method: "POST",
-        body: { teamName, practiceRegion, practiceNote }
+        body: { teamName, practiceRegions, practiceNote }
       });
 
       IM.showToast("팀이 생성되었습니다.", "success");
       // 생성자는 자동으로 팀에 속한 상태이므로 UI에서도 팀 만들기 메뉴를 숨김
-      state.myTeam = { id: res.teamId, teamId: res.teamId, leaderUserId: state.me?.userId, teamName, practiceRegion, practiceNote, createdAt: new Date().toISOString() };
+      state.myTeam = { id: res.teamId, teamId: res.teamId, leaderUserId: state.me?.userId, teamName, practiceRegions, practiceNote, createdAt: new Date().toISOString() };
       renderNav();
       window.location.hash = `#/teams/${res.teamId}`;
     });
@@ -884,7 +902,7 @@ async function viewMyTeam() {
           <div class="card">
             <div class="card-body">
               <div class="fw-semibold mb-2">팀 정보</div>
-              <div class="mb-1"><span class="muted">연습 지역</span> : ${IM.escapeHtml(fmtEnum("region", team.practiceRegion) || team.practiceRegion || "-")}</div>
+              <div class="mb-1"><span class="muted">연습 지역</span> : ${IM.escapeHtml(formatPracticeRegions(team))}</div>
               <br><div class="mb-1"><span class="muted">팀 생성 날짜</span> : ${IM.escapeHtml(fmtDate(team.createdAt))}</div>
               <br><div class="mt-2">
                 <div class="muted small">상세 정보</div>

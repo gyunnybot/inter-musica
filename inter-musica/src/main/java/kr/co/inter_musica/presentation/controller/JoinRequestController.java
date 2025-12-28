@@ -5,6 +5,7 @@ import kr.co.inter_musica.domain.enums.JoinRequestStatus;
 import kr.co.inter_musica.infrastructure.persistence.entity.JoinRequestJpaEntity;
 import kr.co.inter_musica.domain.security.SecurityUtil;
 import jakarta.validation.Valid;
+import kr.co.inter_musica.infrastructure.persistence.entity.RegionJpaEntity;
 import kr.co.inter_musica.presentation.dto.joinrequest.JoinRequestApplyRequest;
 import kr.co.inter_musica.infrastructure.persistence.entity.PositionSlotJpaEntity;
 import kr.co.inter_musica.infrastructure.persistence.entity.TeamJpaEntity;
@@ -49,7 +50,7 @@ public class JoinRequestController {
         long userId = SecurityUtil.currentUserId();
 
         String message = request == null ? null : request.getMessage();
-        Long joinRequestId = joinService.applyJoinRequest(userId, teamId, positionId, message);
+        Long joinRequestId = joinRequestService.applyJoinRequest(userId, teamId, positionId, message);
 
         return ResponseEntity.ok(joinRequestId);
     }
@@ -88,9 +89,19 @@ public class JoinRequestController {
             TeamJpaEntity t = teamMap.get(jr.getTeamId());
             PositionSlotJpaEntity s = slotMap.get(jr.getPositionSlotId());
 
+            List<String> practiceRegions = List.of();
+            if (t != null) {
+                if (t.getRegions() != null && !t.getRegions().isEmpty()) {
+                    practiceRegions = t.getRegions().stream().map(RegionJpaEntity::getCode).toList();
+                } else if (t.getPracticeRegion() != null && !t.getPracticeRegion().isBlank()) {
+                    practiceRegions = List.of(t.getPracticeRegion());
+                }
+            }
+
             MyJoinRequestResponse.TeamSummary team = new MyJoinRequestResponse.TeamSummary(jr.getTeamId(),
                     (t == null ? "(삭제된 팀)" : t.getTeamName()),
-                    (t == null ? "-" : t.getPracticeRegion())
+                    (t == null ? "-" : t.getPracticeRegion()),
+                    practiceRegions
             );
 
             MyJoinRequestResponse.PositionSummary position = new MyJoinRequestResponse.PositionSummary(

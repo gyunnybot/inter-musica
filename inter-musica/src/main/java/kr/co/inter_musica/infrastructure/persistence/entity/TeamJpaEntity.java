@@ -1,8 +1,11 @@
 package kr.co.inter_musica.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
+
 import java.time.Instant;
 import java.time.LocalTime;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "teams")
@@ -29,6 +32,14 @@ public class TeamJpaEntity {
 
     @Column(name="core_time_end")
     private LocalTime coreTimeEnd;
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "team_regions",
+            joinColumns = @JoinColumn(name = "team_id"),
+            inverseJoinColumns = @JoinColumn(name = "region_code")
+    )
+    private Set<RegionJpaEntity> regions = new LinkedHashSet<>();
 
     @Column(name="created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -57,9 +68,11 @@ public class TeamJpaEntity {
     public String getPracticeNote() { return practiceNote; }
     public LocalTime getCoreTimeStart() { return coreTimeStart; }
     public LocalTime getCoreTimeEnd() { return coreTimeEnd; }
+    public Set<RegionJpaEntity> getRegions() { return regions; }
     public Instant getCreatedAt() { return createdAt; }
 
     public void setTeamName(String teamName) { this.teamName = teamName; }
     public void setPracticeRegion(String practiceRegion) { this.practiceRegion = practiceRegion; }
     public void setPracticeNote(String practiceNote) { this.practiceNote = practiceNote; }
+    public void setRegions(Set<RegionJpaEntity> regions) { this.regions = regions; }
 }
