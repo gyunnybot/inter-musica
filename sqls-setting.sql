@@ -42,11 +42,10 @@ CREATE TABLE profiles (
   name VARCHAR(50) NOT NULL,
   instrument VARCHAR(30) NOT NULL,           -- DB는 VARCHAR (A안)
   level VARCHAR(30) NOT NULL,
-  region VARCHAR(30) NOT NULL,               -- DB는 VARCHAR (A안)
+  region VARCHAR(255) NOT NULL,              -- 연습 가능 지역(복수, CSV)             -- DB는 VARCHAR (A안)
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (profile_id),
   KEY idx_profiles_instrument (instrument),
-  KEY idx_profiles_region (region),
   CONSTRAINT fk_profiles_user
     FOREIGN KEY (profile_id) REFERENCES users(id)
     ON DELETE CASCADE

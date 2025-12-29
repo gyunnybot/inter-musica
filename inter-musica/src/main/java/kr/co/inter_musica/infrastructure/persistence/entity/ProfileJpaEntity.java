@@ -25,7 +25,7 @@ public class ProfileJpaEntity {
     @Column(nullable = false, length = 30)
     private String level;
 
-    @Column(nullable = false, length = 30)
+    @Column(nullable = false, length = 255)
     private String region;
 
     @Column(name = "updated_at", nullable = false)

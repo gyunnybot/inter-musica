@@ -8,8 +8,10 @@ import kr.co.inter_musica.domain.enums.ErrorCode;
 import java.util.List;
 
 public class JoinRequestPolicy {
-    public void validateRegionMatch(List<String> profileRegions, String teamPracticeRegion) {
-        if (profileRegions == null || profileRegions.isEmpty() || !profileRegions.contains(teamPracticeRegion)) {
+    public void validateRegionMatch(List<String> profileRegions, List<String> teamPracticeRegions) {
+        if (profileRegions == null || profileRegions.isEmpty()
+                || teamPracticeRegions == null || teamPracticeRegions.isEmpty()
+                || profileRegions.stream().noneMatch(teamPracticeRegions::contains)) {
             throw new ApiException(ErrorCode.JOIN_REQUEST_REGION_MISMATCH, "프로필 지역과 팀 연습 지역이 일치하지 않습니다.");
         }
     }

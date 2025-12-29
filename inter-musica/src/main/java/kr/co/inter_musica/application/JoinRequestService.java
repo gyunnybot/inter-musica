@@ -61,7 +61,10 @@ public class JoinRequestService {
                 .orElseThrow(() -> new ApiException(ErrorCode.PROFILE_NOT_FOUND, "프로필을 찾을 수 없습니다."));
 
         // region/instrument/level match
-        policy.validateRegionMatch(Region.parseStored(profile.getRegion()), team.getPracticeRegion());
+        List<String> teamPracticeRegions = team.getRegions() == null || team.getRegions().isEmpty()
+                ? List.of(team.getPracticeRegion())
+                : team.getRegions().stream().map(RegionJpaEntity::getCode).toList();
+        policy.validateRegionMatch(Region.parseStored(profile.getRegion()), teamPracticeRegions);
         policy.validateInstrumentMatch(profile.getInstrument(), slot.getInstrument());
         policy.validateLevel(profile.getLevel(), slot.getRequiredLevelMin());
 
