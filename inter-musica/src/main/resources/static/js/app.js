@@ -740,7 +740,7 @@ async function viewMyTeam() {
                 ${IM.escapeHtml(fmtDate(team.createdAt))}
               </div>
               <div class="mt-2">
-                <div class="muted small">메모</div>
+                <div class="muted small">팀 안내사항/공지</div>
                 <div>${IM.escapeHtml(team.practiceNote || "-")}</div>
               </div>
               <div class="mt-auto pt-3">
@@ -910,7 +910,7 @@ async function viewMyTeam() {
               <div class="mb-1"><span class="muted">연습 지역</span> : ${IM.escapeHtml(formatPracticeRegions(team))}</div>
               <br><div class="mb-1"><span class="muted">팀 생성 날짜</span> : ${IM.escapeHtml(fmtDate(team.createdAt))}</div>
               <br><div class="mt-2">
-                <div class="muted small">상세 정보</div>
+                <div class="muted small">팀 안내사항/공지</div>
                 <div>${IM.escapeHtml(team.practiceNote || "-")}</div>
               </div>
             </div>
