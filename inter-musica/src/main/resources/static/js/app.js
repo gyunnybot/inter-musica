@@ -623,7 +623,7 @@ async function loadTeams(region) {
             }
 
       await IM.apiFetch("/profiles/me", {
-        method: "PUT",
+        method: "PATCH",
         body: { name, instrument, level, practiceRegions }
       });
 

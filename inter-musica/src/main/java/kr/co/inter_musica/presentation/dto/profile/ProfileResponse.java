@@ -26,13 +26,13 @@ public class ProfileResponse {
     public String getName() { return name; }
     public String getInstrument() { return instrument; }
     public String getLevel() { return level; }
-    public List<String> getRegion() { return practiceRegions; }
+    public List<String> getPracticeRegions() { return practiceRegions; }
     public Instant getUpdatedAt() { return updatedAt; }
 
     public void setUserId(Long userId) { this.userId = userId; }
     public void setName(String name) { this.name = name; }
     public void setInstrument(String instrument) { this.instrument = instrument; }
     public void setLevel(String level) { this.level = level; }
-    public void setRegion(String region) { this.practiceRegions = practiceRegions; }
+    public void setPracticeRegions(List<String> practiceRegions) { this.practiceRegions = practiceRegions; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }
