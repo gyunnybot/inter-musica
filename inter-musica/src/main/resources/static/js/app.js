@@ -268,7 +268,7 @@
     renderShell("팀 찾기", `
       <div class="row g-3 mb-3">
         <div class="col-lg-4">
-          <label class="form-label">지역(선택)</label>
+          <label class="form-label">위치(선택)</label>
           <select class="form-select" id="regionFilter">
             <option value="">전체</option>
             ${ENUMS.region.map(r => `<option value="${r}">${fmtEnum("region", r)}</option>`).join("")}
@@ -289,10 +289,10 @@
             <table class="table align-middle">
               <thead>
                 <tr>
-                  <th>팀</th>
-                  <th>연습 지역</th>
+                  <th>팀 이름</th>
+                  <th>연습 위치</th>
                   <th class="d-none d-lg-table-cell">남은 포지션</th>
-                  <th>메모</th>
+                  <th>팀 안내사항/공지</th>
                   <th class="d-none d-md-table-cell">생성일</th>
                   <th></th>
                 </tr>
@@ -485,7 +485,7 @@ async function loadTeams(region) {
                   </select>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">연습 가능 지역</label>
+                  <label class="form-label">연습 가능 위치</label>
                                     <div class="border rounded-3 p-2">
                                       ${ENUMS.region.map(v => `
                                         <div class="form-check">
@@ -522,7 +522,7 @@ async function loadTeams(region) {
               .map(input => input.value);
 
             if (!practiceRegions.length) {
-              IM.showToast("연습 가능 지역을 선택해 주세요.", "warning");
+              IM.showToast("연습 가능 위치를 선택해 주세요.", "warning");
               return;
             }
 
@@ -559,7 +559,7 @@ async function loadTeams(region) {
               <div class="mb-1"><span class="muted">이름</span> : ${IM.escapeHtml(me.name)}</div>
               <div class="mb-1"><span class="muted">악기</span> : ${IM.escapeHtml(fmtEnum("instrument", me.instrument) || me.instrument)}</div>
               <div class="mb-1"><span class="muted">레벨</span> : ${IM.escapeHtml(fmtEnum("level", me.level) || me.level)}</div>
-              <div class="mb-1"><span class="muted">연습 가능 지역</span> : ${IM.escapeHtml(profilePracticeRegionList(me).map(r => fmtEnum("region", r) || r).join(", ") || "-")}</div>
+              <div class="mb-1"><span class="muted">연습 가능 위치</span> : ${IM.escapeHtml(profilePracticeRegionList(me).map(r => fmtEnum("region", r) || r).join(", ") || "-")}</div>
               <div class="mt-2 small muted">업데이트: ${IM.escapeHtml(fmtDate(me.updatedAt))}</div>
             </div>
           </div>
@@ -587,7 +587,7 @@ async function loadTeams(region) {
                   </select>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">연습 가능 지역</label>
+                  <label class="form-label">연습 가능 위치</label>
                                     <div class="border rounded-3 p-2">
                                       ${ENUMS.region.map(v => `
                                         <div class="form-check">
@@ -618,7 +618,7 @@ async function loadTeams(region) {
               .map(input => input.value);
 
             if (!practiceRegions.length) {
-              IM.showToast("연습 가능 지역을 선택해 주세요.", "warning");
+              IM.showToast("연습 가능 위치를 선택해 주세요.", "warning");
               return;
             }
 
@@ -767,7 +767,7 @@ async function viewMyTeam() {
                 <span class="badge ${roleBadge}">${roleLabel}</span>
               </div>
               <div class="mb-1">
-                <span class="muted">연습 지역</span> :
+                <span class="muted">연습 위치</span> :
                 ${IM.escapeHtml(formatPracticeRegions(team))}
               </div>
               <div class="mb-1">
@@ -875,7 +875,7 @@ async function viewMyTeam() {
                   <input class="form-control" id="teamName" placeholder="예: 홍대 스트링 앙상블"/>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">연습 지역</label>
+                  <label class="form-label">연습 위치</label>
                   <div class="border rounded-3 p-2">
                     ${ENUMS.region.map(v => `
                       <div class="form-check">
@@ -909,7 +909,7 @@ async function viewMyTeam() {
       const practiceNote = document.getElementById("practiceNote").value.trim();
 
       if (!practiceRegions.length) {
-              IM.showToast("연습 지역을 선택해 주세요.", "warning");
+              IM.showToast("연습 위치를 선택해 주세요.", "warning");
               return;
             }
 
@@ -961,7 +961,7 @@ async function viewMyTeam() {
           <div class="card">
             <div class="card-body">
               <div class="fw-semibold mb-2">팀 정보</div>
-              <div class="mb-1"><span class="muted">연습 지역</span> : ${IM.escapeHtml(formatPracticeRegions(team))}</div>
+              <div class="mb-1"><span class="muted">연습 위치</span> : ${IM.escapeHtml(formatPracticeRegions(team))}</div>
               <br><div class="mb-1"><span class="muted">팀 생성 날짜</span> : ${IM.escapeHtml(fmtDate(team.createdAt))}</div>
               <br><div class="mt-2">
                 <div class="muted small">팀 안내사항/공지</div>
@@ -1004,7 +1004,7 @@ async function viewMyTeam() {
           <div class="card mt-3" id="teamChatCard">
                       <div class="card-body">
                         <div class="d-flex align-items-center justify-content-between mb-2">
-                          <div class="fw-semibold">팀 톡방</div>
+                          <div class="fw-semibold">팀 메시지</div>
                           <button class="btn btn-sm btn-outline-dark" id="btnReloadChat">
                             <i class="bi bi-arrow-clockwise me-1"></i>새로고침
                           </button>
@@ -1361,7 +1361,7 @@ async function viewMyTeam() {
             <div class="row g-2">
               <div class="col-6"><span class="muted">악기</span> ${IM.escapeHtml(fmtEnum("instrument", p.instrument) || p.instrument || "-")}</div>
               <div class="col-6"><span class="muted">레벨</span> ${IM.escapeHtml(fmtEnum("level", p.level) || p.level || "-")}</div>
-              <div class="col-12"><span class="muted">연습 가능 지역</span> ${IM.escapeHtml(profilePracticeRegionList(p).map(r => fmtEnum("region", r) || r).join(", ") || "-")}</div>
+              <div class="col-12"><span class="muted">연습 가능 위치</span> ${IM.escapeHtml(profilePracticeRegionList(p).map(r => fmtEnum("region", r) || r).join(", ") || "-")}</div>
             </div>
             <div class="mt-2 small muted">업데이트: ${IM.escapeHtml(fmtDate(p.updatedAt))}</div>
           </div>
