@@ -76,6 +76,13 @@
       return [];
   }
 
+  function profilePracticeRegionList(profile) {
+        const list = asArray(profile?.practiceRegions);
+        if (list.length) return list;
+        if (profile?.region) return [profile.region];
+        return [];
+  }
+
   function formatPracticeRegions(team) {
         const regions = practiceRegionList(team);
         if (!regions.length) return "-";
@@ -478,10 +485,17 @@ async function loadTeams(region) {
                   </select>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">지역</label>
-                  <select class="form-select" id="region">
-                    ${ENUMS.region.map(v => `<option value="${v}">${fmtEnum("region", v)}</option>`).join("")}
-                  </select>
+                  <label class="form-label">연습 가능 지역</label>
+                                    <div class="border rounded-3 p-2">
+                                      ${ENUMS.region.map(v => `
+                                        <div class="form-check">
+                                          <input class="form-check-input" type="checkbox" value="${v}" id="profileRegion-${v}">
+                                          <label class="form-check-label" for="profileRegion-${v}">
+                                            ${fmtEnum("region", v)}
+                                          </label>
+                                        </div>
+                                      `).join("")}
+                                    </div>
                 </div>
               </div>
 
@@ -504,12 +518,18 @@ async function loadTeams(region) {
       const name = document.getElementById("name").value.trim();
       const instrument = document.getElementById("instrument").value;
       const level = document.getElementById("level").value;
-      const region = document.getElementById("region").value;
+      const practiceRegions = Array.from(document.querySelectorAll("input[id^='profileRegion-']:checked"))
+              .map(input => input.value);
+
+            if (!practiceRegions.length) {
+              IM.showToast("연습 가능 지역을 선택해 주세요.", "warning");
+              return;
+            }
 
       await IM.apiFetch("/auth/signup", {
         method: "POST",
         auth: false,
-        body: { email, password, name, instrument, level, region }
+        body: { email, password, name, instrument, level, practiceRegions }
       });
 
       IM.showToast("회원가입 완료! 로그인해 주세요.", "success");
@@ -539,7 +559,7 @@ async function loadTeams(region) {
               <div class="mb-1"><span class="muted">이름</span> : ${IM.escapeHtml(me.name)}</div>
               <div class="mb-1"><span class="muted">악기</span> : ${IM.escapeHtml(fmtEnum("instrument", me.instrument) || me.instrument)}</div>
               <div class="mb-1"><span class="muted">레벨</span> : ${IM.escapeHtml(fmtEnum("level", me.level) || me.level)}</div>
-              <div class="mb-1"><span class="muted">지역</span> : ${IM.escapeHtml(fmtEnum("region", me.region) || me.region)}</div>
+              <div class="mb-1"><span class="muted">연습 가능 지역</span> : ${IM.escapeHtml(profilePracticeRegionList(me).map(r => fmtEnum("region", r) || r).join(", ") || "-")}</div>
               <div class="mt-2 small muted">업데이트: ${IM.escapeHtml(fmtDate(me.updatedAt))}</div>
             </div>
           </div>
@@ -567,10 +587,17 @@ async function loadTeams(region) {
                   </select>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">지역</label>
-                  <select class="form-select" id="region">
-                    ${ENUMS.region.map(v => `<option value="${v}" ${v===me.region?'selected':''}>${fmtEnum("region", v)}</option>`).join("")}
-                  </select>
+                  <label class="form-label">연습 가능 지역</label>
+                                    <div class="border rounded-3 p-2">
+                                      ${ENUMS.region.map(v => `
+                                        <div class="form-check">
+                                          <input class="form-check-input" type="checkbox" value="${v}" id="profileRegion-${v}" ${profilePracticeRegionList(me).includes(v) ? "checked" : ""}>
+                                          <label class="form-check-label" for="profileRegion-${v}">
+                                            ${fmtEnum("region", v)}
+                                          </label>
+                                        </div>
+                                      `).join("")}
+                                    </div>
                 </div>
               </div>
 
@@ -587,11 +614,17 @@ async function loadTeams(region) {
       const name = document.getElementById("name").value.trim();
       const instrument = document.getElementById("instrument").value;
       const level = document.getElementById("level").value;
-      const region = document.getElementById("region").value;
+      const practiceRegions = Array.from(document.querySelectorAll("input[id^='profileRegion-']:checked"))
+              .map(input => input.value);
+
+            if (!practiceRegions.length) {
+              IM.showToast("연습 가능 지역을 선택해 주세요.", "warning");
+              return;
+            }
 
       await IM.apiFetch("/profiles/me", {
         method: "PUT",
-        body: { name, instrument, level, region }
+        body: { name, instrument, level, practiceRegions }
       });
 
       IM.showToast("프로필이 업데이트되었습니다.", "success");
@@ -689,6 +722,9 @@ async function viewMyTeam() {
 
   await ensureMe();
   const me = state.me; // { userId, name, ... }
+  if (me?.userId) {
+      cache.profileByUserId[String(me.userId)] = me;
+    }
 
   const pickTeamId = (t) => (t?.id ?? t?.teamId ?? t?.team_id);
 
@@ -718,6 +754,9 @@ async function viewMyTeam() {
       const isLeader = Number(team.leaderUserId) === Number(me?.userId);
       const roleLabel = isLeader ? "팀장" : "팀원";
       const roleBadge = isLeader ? "text-bg-dark" : "text-bg-secondary";
+      const leaderName = team.leaderName
+              || cache.profileByUserId[String(team.leaderUserId)]?.name
+              || "-";
 
       return `
         <div class="col-lg-6">
@@ -733,7 +772,7 @@ async function viewMyTeam() {
               </div>
               <div class="mb-1">
                 <span class="muted">팀장</span> :
-                ${IM.escapeHtml(team.leaderName || me?.name || "-")}
+                ${IM.escapeHtml(leaderName)}
               </div>
               <div class="mb-1">
                 <span class="muted">생성일</span> :
@@ -768,6 +807,19 @@ async function viewMyTeam() {
     return list.filter(t => Number(t.leaderUserId) === Number(me.userId));
   }
 
+  async function ensureLeaderNames(teams) {
+      const leaderIds = [...new Set(teams.map(team => String(team.leaderUserId)).filter(Boolean))];
+      await Promise.all(leaderIds.map(async (leaderId) => {
+        if (cache.profileByUserId[leaderId]) return;
+        try {
+          const profile = await IM.apiFetch(`/profiles/${encodeURIComponent(leaderId)}`, { auth: true, silent: true });
+          cache.profileByUserId[leaderId] = profile;
+        } catch (_) {
+          cache.profileByUserId[leaderId] = { name: null };
+        }
+      }));
+  }
+
   try {
     // 1) 우선 "내가 속한 팀" 조회 (팀원/팀장 모두 여기서 내려오면 가장 좋음)
     const raw = await IM.apiFetch("/teams/me", { auth: true, silent: true });
@@ -784,12 +836,14 @@ async function viewMyTeam() {
       unique.push(team);
     }
 
+    await ensureLeaderNames(unique);
     renderTeams(unique);
   } catch (e) {
     // 어떤 형태의 실패든: 우선 팀장 fallback을 시도하고, 실패하면 빈 상태로 처리 (라우터 에러 화면 방지)
     try {
       const leaderTeams = await findLeaderTeams();
       if (leaderTeams.length) {
+        await ensureLeaderNames(leaderTeams);
         renderTeams(leaderTeams);
         return;
       }
@@ -834,7 +888,7 @@ async function viewMyTeam() {
                   </div>
                 </div>
                 <div class="col-12">
-                  <label class="form-label">연습 메모(선택)</label>
+                  <label class="form-label">팀 안내사항/공지</label>
                   <textarea class="form-control" id="practiceNote" rows="3" placeholder="주 1회 / 주말 / 합주실 장소 등"></textarea>
                 </div>
               </div>
@@ -1056,7 +1110,7 @@ async function viewMyTeam() {
             body: { message: message || null }
           });
           IM.addMyJoinRequestId(res);
-          IM.showToast(`지원 완료! joinRequestId=${res}`, "success");
+          IM.showToast(`지원 완료!`, "success");
           if (applyModal) applyModal.hide();
         } finally {
           applySubmitBtn.disabled = false;
@@ -1307,7 +1361,7 @@ async function viewMyTeam() {
             <div class="row g-2">
               <div class="col-6"><span class="muted">악기</span> ${IM.escapeHtml(fmtEnum("instrument", p.instrument) || p.instrument || "-")}</div>
               <div class="col-6"><span class="muted">레벨</span> ${IM.escapeHtml(fmtEnum("level", p.level) || p.level || "-")}</div>
-              <div class="col-12"><span class="muted">지역</span> ${IM.escapeHtml(fmtEnum("region", p.region) || p.region || "-")}</div>
+              <div class="col-12"><span class="muted">연습 가능 지역</span> ${IM.escapeHtml(profilePracticeRegionList(p).map(r => fmtEnum("region", r) || r).join(", ") || "-")}</div>
             </div>
             <div class="mt-2 small muted">업데이트: ${IM.escapeHtml(fmtDate(p.updatedAt))}</div>
           </div>

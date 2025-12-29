@@ -5,9 +5,11 @@ import kr.co.inter_musica.domain.enums.Level;
 import kr.co.inter_musica.domain.exception.ApiException;
 import kr.co.inter_musica.domain.enums.ErrorCode;
 
+import java.util.List;
+
 public class JoinRequestPolicy {
-    public void validateRegionMatch(String profileRegion, String teamPracticeRegion) {
-        if (!profileRegion.equals(teamPracticeRegion)) {
+    public void validateRegionMatch(List<String> profileRegions, String teamPracticeRegion) {
+        if (profileRegions == null || profileRegions.isEmpty() || !profileRegions.contains(teamPracticeRegion)) {
             throw new ApiException(ErrorCode.JOIN_REQUEST_REGION_MISMATCH, "프로필 지역과 팀 연습 지역이 일치하지 않습니다.");
         }
     }

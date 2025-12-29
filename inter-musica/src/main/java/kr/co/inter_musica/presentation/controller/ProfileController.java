@@ -2,6 +2,7 @@ package kr.co.inter_musica.presentation.controller;
 
 import jakarta.validation.Valid;
 import kr.co.inter_musica.application.ProfileService;
+import kr.co.inter_musica.domain.enums.Region;
 import kr.co.inter_musica.infrastructure.persistence.entity.ProfileJpaEntity;
 import kr.co.inter_musica.domain.security.SecurityUtil;
 import kr.co.inter_musica.presentation.dto.profile.ProfileResponse;
@@ -32,7 +33,7 @@ public class ProfileController {
                 profile.getName(),
                 profile.getInstrument(),
                 profile.getLevel(),
-                profile.getRegion(),
+                Region.parseStored(profile.getRegion()),
                 profile.getUpdatedAt()
         );
 
@@ -50,7 +51,7 @@ public class ProfileController {
                 profile.getName(),
                 profile.getInstrument(),
                 profile.getLevel(),
-                profile.getRegion(),
+                Region.parseStored(profile.getRegion()),
                 profile.getUpdatedAt()
         );
 
@@ -68,7 +69,7 @@ public class ProfileController {
                 profileUpdateRequest.getName(),
                 profileUpdateRequest.getInstrument(),
                 profileUpdateRequest.getLevel(),
-                profileUpdateRequest.getRegion()
+                profileUpdateRequest.getPracticeRegions()
         );
 
         return ResponseEntity.ok().build();

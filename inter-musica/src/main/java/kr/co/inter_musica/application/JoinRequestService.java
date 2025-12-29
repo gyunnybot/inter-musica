@@ -1,5 +1,6 @@
 package kr.co.inter_musica.application;
 
+import kr.co.inter_musica.domain.enums.Region;
 import kr.co.inter_musica.domain.joinrequest.JoinRequestPolicy;
 import kr.co.inter_musica.domain.enums.JoinRequestStatus;
 import kr.co.inter_musica.infrastructure.persistence.entity.*;
@@ -60,7 +61,7 @@ public class JoinRequestService {
                 .orElseThrow(() -> new ApiException(ErrorCode.PROFILE_NOT_FOUND, "프로필을 찾을 수 없습니다."));
 
         // region/instrument/level match
-        policy.validateRegionMatch(profile.getRegion(), team.getPracticeRegion());
+        policy.validateRegionMatch(Region.parseStored(profile.getRegion()), team.getPracticeRegion());
         policy.validateInstrumentMatch(profile.getInstrument(), slot.getInstrument());
         policy.validateLevel(profile.getLevel(), slot.getRequiredLevelMin());
 

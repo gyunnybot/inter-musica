@@ -15,6 +15,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 public class AuthService {
 
@@ -37,14 +39,14 @@ public class AuthService {
     }
 
     @Transactional
-    public void signup(String email, String rawPassword, String name, String instrumentRaw, String levelRaw, String regionRaw) {
+    public void signup(String email, String rawPassword, String name, String instrumentRaw, String levelRaw, List<String> practiceRegions) {
         if (userJpaRepository.existsByEmail(email)) {
             throw new ApiException(ErrorCode.EMAIL_DUPLICATED, "이미 사용 중인 이메일입니다.");
         }
 
         // 도메인 강제 (유효성 검사는 여기서 통과해야 함)
         Instrument instrument = Instrument.from(instrumentRaw);
-        Region region = Region.from(regionRaw);
+        List<String> normalizedRegions = Region.normalizeList(practiceRegions);
 
         String encoded = passwordEncoder.encode(rawPassword);
 
@@ -58,7 +60,7 @@ public class AuthService {
                 name,
                 instrument.name(),
                 level.name(),
-                region.name()
+                String.join(",", normalizedRegions)
         );
         profileJpaRepository.save(profile);
     }

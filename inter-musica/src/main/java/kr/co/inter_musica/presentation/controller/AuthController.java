@@ -30,7 +30,7 @@ public class AuthController {
                 signupRequest.getName(),
                 signupRequest.getInstrument(),
                 signupRequest.getLevel(),
-                signupRequest.getRegion()
+                signupRequest.getPracticeRegions()
         );
 
         return ResponseEntity.ok().build();
