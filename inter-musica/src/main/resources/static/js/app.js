@@ -56,7 +56,8 @@
     loadingMe: false,
     myTeam: undefined, // undefined: unknown, null: no team, object: team
     myTeams: undefined, // array or null
-    loadingMyTeam: false
+    loadingMyTeam: false,
+    activeIntervals: []
   };
 
   // 간단 캐시(지원자 프로필 등 반복 조회 방지)
@@ -102,6 +103,15 @@
 
   function setHtml(el, html) { el.innerHTML = html; }
 
+  function registerInterval(intervalId) {
+    state.activeIntervals.push(intervalId);
+  }
+
+  function clearIntervals() {
+    state.activeIntervals.forEach((intervalId) => clearInterval(intervalId));
+    state.activeIntervals = [];
+  }
+
   function fmtEnum(group, value) {
     if (!value) return "";
     return (LABELS[group] && LABELS[group][value]) ? LABELS[group][value] : value;
@@ -113,6 +123,64 @@
       const d = new Date(iso);
       return d.toLocaleString("ko-KR");
     } catch { return iso; }
+  }
+
+  function renderPracticeNoteModal() {
+    return `
+      <div class="modal fade" id="practiceNoteModal" tabindex="-1">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="practiceNoteTitle">팀 안내사항/공지</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="practiceNoteBody">
+              <div class="muted">불러오는 중...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function openPracticeNoteModal(teamName, note) {
+    const modalEl = document.getElementById("practiceNoteModal");
+    if (!modalEl) return;
+    const titleEl = document.getElementById("practiceNoteTitle");
+    const bodyEl = document.getElementById("practiceNoteBody");
+    if (titleEl) {
+      titleEl.textContent = teamName ? `팀 안내사항/공지` : "팀 안내사항/공지";
+    }
+    if (bodyEl) {
+      const sanitized = note ? IM.escapeHtml(note).replace(/\n/g, "<br>") : "";
+      bodyEl.innerHTML = sanitized ? `<div class="im-join-message">${sanitized}</div>` : `<div class="muted">등록된 공지가 없습니다.</div>`;
+    }
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
+
+  function renderSlotHtml(total, used) {
+    const remain = Math.max(0, total - used);
+    const remainRatio = total ? (remain / total) : 0;
+    const slotStateClass = total
+      ? (remainRatio <= 0.2 ? "im-slot-danger" : remainRatio <= 0.4 ? "im-slot-warning" : "")
+      : "";
+    const slotTextClass = slotStateClass === "im-slot-danger"
+      ? "im-slot-text-danger"
+      : slotStateClass === "im-slot-warning"
+        ? "im-slot-text-warning"
+        : "";
+    const slotSegments = total
+      ? Array.from({ length: total }, (_, idx) => {
+        const isRemaining = idx < remain;
+        return `<span class="im-slot-segment ${isRemaining ? "is-remaining" : "is-used"}"></span>`;
+      }).join("")
+      : "";
+    return `
+      <div class="im-slot-track ${total ? slotStateClass : "im-slot-empty"}">
+        ${slotSegments || `<span class="muted small">-</span>`}
+      </div>
+      <div class="small muted mt-1 ${slotTextClass}">남은 자리: ${remain}</div>
+    `;
   }
 
   async function ensureMe() {
@@ -136,7 +204,7 @@
     return state.me;
   }
 
-  
+
 
   function pickTeamId(t) {
     return t?.id ?? t?.teamId ?? t?.team_id;
@@ -304,6 +372,7 @@
           </div>
         </div>
       </div>
+      ${renderPracticeNoteModal()}
     `);
 
     const regionFilter = document.getElementById("regionFilter");
@@ -332,6 +401,9 @@ async function loadTeams(region) {
   rows.innerHTML = list.map(t => {
     const teamId = (t.id ?? t.teamId ?? t.team_id);
     const memo = (t.practiceNote ?? t.memo ?? t.note ?? "");
+    const memoButton = memo
+      ? `<button class="btn btn-sm btn-outline-secondary" data-team-note="${IM.escapeHtml(String(teamId))}">보기</button>`
+      : `<span class="muted small">-</span>`;
     return `
       <tr>
         <td class="text-truncate">${IM.escapeHtml(t.teamName || "")}</td>
@@ -339,7 +411,7 @@ async function loadTeams(region) {
         <td class="d-none d-lg-table-cell" id="teamSlot-${IM.escapeHtml(String(teamId))}">
           <span class="muted small">불러오는 중...</span>
         </td>
-        <td class="d-none d-md-table-cell">${IM.escapeHtml(memo || "-")}</td>
+        <td class="d-none d-md-table-cell">${memoButton}</td>
         <td class="d-none d-md-table-cell">${IM.escapeHtml(fmtDate(t.createdAt))}</td>
         <td class="text-end">
           <a class="btn btn-sm btn-dark" href="#/teams/${IM.escapeHtml(String(teamId))}">
@@ -349,6 +421,19 @@ async function loadTeams(region) {
       </tr>
     `;
   }).join("");
+
+  const memoById = new Map(list.map(t => {
+    const teamId = (t.id ?? t.teamId ?? t.team_id);
+    const memo = (t.practiceNote ?? t.memo ?? t.note ?? "");
+    return [String(teamId), memo || ""];
+  }));
+  rows.querySelectorAll("[data-team-note]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const teamId = btn.getAttribute("data-team-note");
+      const team = list.find(t => String(t.id ?? t.teamId ?? t.team_id) === String(teamId));
+      openPracticeNoteModal(team?.teamName || "팀", memoById.get(String(teamId)));
+    });
+  });
 
   // 남은 포지션 정보는 팀별로 추가 조회해서 채움(비동기)
   enhanceTeamListSlots(list);
@@ -518,91 +603,76 @@ async function loadTeams(region) {
       const name = document.getElementById("name").value.trim();
       const instrument = document.getElementById("instrument").value;
       const level = document.getElementById("level").value;
-      const practiceRegions = Array.from(document.querySelectorAll("input[id^='profileRegion-']:checked"))
-              .map(input => input.value);
+      const regions = Array.from(document.querySelectorAll("input[id^='profileRegion-']:checked"))
+        .map(input => input.value);
 
-            if (!practiceRegions.length) {
-              IM.showToast("연습 가능 위치를 선택해 주세요.", "warning");
-              return;
-            }
+      if (!regions.length) {
+        IM.showToast("참여 가능한 연습 위치를 선택해 주세요.", "warning");
+        return;
+      }
 
-      await IM.apiFetch("/auth/signup", {
+      const res = await IM.apiFetch("/auth/signup", {
         method: "POST",
         auth: false,
-        body: { email, password, name, instrument, level, practiceRegions }
+        body: { email, password, name, instrument, level, practiceRegions: regions }
       });
 
-      IM.showToast("회원가입 완료! 로그인해 주세요.", "success");
-      window.location.hash = "#/login";
+      IM.setToken(res.accessToken);
+      state.me = null;
+      state.myTeam = undefined;
+      state.myTeams = undefined;
+      await ensureMe();
+      IM.showToast("회원가입 완료!", "success");
+      window.location.hash = '#/teams';
     });
   }
 
   async function viewProfile() {
     if (!requireAuth()) return;
-    renderShell("내 프로필", `
-      <div class="card">
-        <div class="card-body">
-          <div class="muted">불러오는 중...</div>
-        </div>
-      </div>
-    `);
-
-    const me = await ensureMe();
-    if (!me) return;
+    await ensureMe();
+    const me = state.me;
 
     renderShell("내 프로필", `
-      <div class="row g-3">
-        <div class="col-lg-5">
+      <div class="row justify-content-center">
+        <div class="col-lg-6">
           <div class="card">
             <div class="card-body">
-              <div class="fw-semibold mb-2">현재 정보</div>
-              <div class="mb-1"><span class="muted">이름</span> : ${IM.escapeHtml(me.name)}</div>
-              <div class="mb-1"><span class="muted">악기</span> : ${IM.escapeHtml(fmtEnum("instrument", me.instrument) || me.instrument)}</div>
-              <div class="mb-1"><span class="muted">레벨</span> : ${IM.escapeHtml(fmtEnum("level", me.level) || me.level)}</div>
-              <div class="mb-1"><span class="muted">연습 가능 위치</span> : ${IM.escapeHtml(profilePracticeRegionList(me).map(r => fmtEnum("region", r) || r).join(", ") || "-")}</div>
-              <div class="mt-2 small muted">업데이트: ${IM.escapeHtml(fmtDate(me.updatedAt))}</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-lg-7">
-          <div class="card">
-            <div class="card-body">
-              <div class="fw-semibold mb-2">수정</div>
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label class="form-label">이름</label>
-                  <input class="form-control" id="name" value="${IM.escapeHtml(me.name)}"/>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">악기</label>
-                  <select class="form-select" id="instrument">
-                    ${ENUMS.instrument.map(v => `<option value="${v}" ${v===me.instrument?'selected':''}>${fmtEnum("instrument", v)}</option>`).join("")}
-                  </select>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">레벨</label>
-                  <select class="form-select" id="level">
-                    ${ENUMS.level.map(v => `<option value="${v}" ${v===me.level?'selected':''}>${fmtEnum("level", v)}</option>`).join("")}
-                  </select>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">연습 가능 위치</label>
-                                    <div class="border rounded-3 p-2">
-                                      ${ENUMS.region.map(v => `
-                                        <div class="form-check">
-                                          <input class="form-check-input" type="checkbox" value="${v}" id="profileRegion-${v}" ${profilePracticeRegionList(me).includes(v) ? "checked" : ""}>
-                                          <label class="form-check-label" for="profileRegion-${v}">
-                                            ${fmtEnum("region", v)}
-                                          </label>
-                                        </div>
-                                      `).join("")}
-                                    </div>
+              <div class="mb-3">
+                <label class="form-label">이메일</label>
+                <input class="form-control" value="${IM.escapeHtml(me?.email || "")}" disabled/>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">이름</label>
+                <input class="form-control" id="profileName" value="${IM.escapeHtml(me?.name || "")}"/>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">악기</label>
+                <select class="form-select" id="profileInstrument">
+                  ${ENUMS.instrument.map(v => `<option value="${v}" ${me?.instrument === v ? "selected" : ""}>${fmtEnum("instrument", v)}</option>`).join("")}
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">레벨</label>
+                <select class="form-select" id="profileLevel">
+                  ${ENUMS.level.map(v => `<option value="${v}" ${me?.level === v ? "selected" : ""}>${fmtEnum("level", v)}</option>`).join("")}
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">참여 가능한 연습 위치</label>
+                <div class="border rounded-3 p-2">
+                  ${ENUMS.region.map(v => `
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" value="${v}" id="profileRegion-${v}" ${profilePracticeRegionList(me).includes(v) ? "checked" : ""}>
+                      <label class="form-check-label" for="profileRegion-${v}">
+                        ${fmtEnum("region", v)}
+                      </label>
+                    </div>
+                  `).join("")}
                 </div>
               </div>
 
-              <button class="btn btn-dark mt-3" id="btnUpdateProfile">
-                <i class="bi bi-check2 me-1"></i>저장
+              <button class="btn btn-dark w-100" id="btnUpdateProfile">
+                <i class="bi bi-save me-1"></i>저장
               </button>
             </div>
           </div>
@@ -611,101 +681,92 @@ async function loadTeams(region) {
     `);
 
     document.getElementById("btnUpdateProfile").addEventListener("click", async () => {
-      const name = document.getElementById("name").value.trim();
-      const instrument = document.getElementById("instrument").value;
-      const level = document.getElementById("level").value;
-      const practiceRegions = Array.from(document.querySelectorAll("input[id^='profileRegion-']:checked"))
-              .map(input => input.value);
+      const name = document.getElementById("profileName").value.trim();
+      const instrument = document.getElementById("profileInstrument").value;
+      const level = document.getElementById("profileLevel").value;
+      const regions = Array.from(document.querySelectorAll("input[id^='profileRegion-']:checked"))
+        .map(input => input.value);
 
-            if (!practiceRegions.length) {
-              IM.showToast("연습 가능 위치를 선택해 주세요.", "warning");
-              return;
-            }
+      if (!regions.length) {
+        IM.showToast("참여 가능한 연습 위치를 선택해 주세요.", "warning");
+        return;
+      }
 
-      await IM.apiFetch("/profiles/me", {
+      const res = await IM.apiFetch("/profiles/me", {
         method: "PATCH",
-        body: { name, instrument, level, practiceRegions }
+        body: { name, instrument, level, practiceRegions: regions }
       });
-
-      IM.showToast("프로필이 업데이트되었습니다.", "success");
-      state.me = null;
-      await ensureMe();
+      state.me = res;
+      IM.showToast("프로필이 수정되었습니다.", "success");
+      renderNav();
       viewProfile();
     });
   }
 
-  async function viewMyJoinRequests() {
-    if (!requireAuth()) return;
+  async function renderMyJoinRequests() {
+    const bodyEl = document.getElementById("myJoinRequestBody");
+    if (!bodyEl) return;
 
-    renderShell("지원 내역", `
-      <div class="row g-2 mb-3">
-        <div class="col-md-4">
-          <label class="form-label">상태 필터</label>
-          <select class="form-select" id="jrStatusFilter">
-            <option value="">전체</option>
-            ${ENUMS.joinStatus.map(s => `<option value="${s}">${fmtEnum("joinStatus", s)}</option>`).join("")}
-          </select>
+    bodyEl.innerHTML = `<div class="muted">불러오는 중...</div>`;
+
+    try {
+      const list = await IM.apiFetch("/join-requests/me", { auth: true, silent: true });
+      const cleaned = (Array.isArray(list) ? list : []).filter(Boolean);
+
+      if (!cleaned.length) {
+        bodyEl.innerHTML = `<div class="muted">지원 내역이 없습니다.</div>`;
+        return;
+      }
+
+      const rows = cleaned.map(jr => `
+        <tr>
+          <td>${IM.escapeHtml(jr.team?.teamName || "-")}</td>
+          <td>${IM.escapeHtml(jr.positionName || "-")}</td>
+          <td><span class="badge text-bg-light">${IM.escapeHtml(fmtEnum("joinStatus", jr.status))}</span></td>
+          <td class="d-none d-md-table-cell">${IM.escapeHtml(fmtDate(jr.createdAt))}</td>
+          <td class="text-end">
+            ${jr.status === "APPLIED"
+              ? `<button class="btn btn-sm btn-outline-danger" data-cancel="${jr.id}">
+                  <i class="bi bi-x me-1"></i>취소
+                </button>`
+              : `<span class="muted small">-</span>`
+            }
+          </td>
+        </tr>
+      `).join("");
+
+      bodyEl.innerHTML = `
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>팀</th>
+                <th>포지션</th>
+                <th>상태</th>
+                <th class="d-none d-md-table-cell">지원일</th>
+                <th class="text-end">관리</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
         </div>
-      </div>
+      `;
 
-      <div id="jrList" class="row g-3">
-        <div class="muted">불러오는 중...</div>
-      </div>
-    `);
-
-    const statusSel = document.getElementById("jrStatusFilter");
-    statusSel.addEventListener("change", () => renderMyJoinRequests(statusSel.value));
-
-    await renderMyJoinRequests("");
-  }
-
-  async function renderMyJoinRequests(status) {
-    const list = await IM.apiFetch(`/join-requests/me${status ? `?status=${encodeURIComponent(status)}` : ""}`, { auth: true });
-    const box = document.getElementById("jrList");
-    if (!box) return;
-
-    if (!list.length) {
-      box.innerHTML = `<div class="muted">지원 이력이 없습니다.</div>`;
-      return;
-    }
-
-    box.innerHTML = list.map(jr => `
-      <div class="col-lg-6">
-        <div class="card">
-          <div class="card-body">
-            <div class="d-flex align-items-center justify-content-between">
-              <div class="fw-semibold">${IM.escapeHtml(jr.team?.teamName || "")}</div>
-              <span class="badge text-bg-light">${IM.escapeHtml(fmtEnum("joinStatus", jr.status))}</span>
-            </div>
-            <div class="mt-2 small">
-              <span class="muted">포지션</span> : ${IM.escapeHtml(fmtEnum("instrument", jr.position?.instrument) || jr.position?.instrument || "-")}
-            </div>
-            <div class="small">
-              <span class="muted">지원일</span> : ${IM.escapeHtml(fmtDate(jr.createdAt))}
-            </div>
-            <div class="mt-2">
-              <a class="btn btn-sm btn-outline-dark" href="#/teams/${IM.escapeHtml(String(jr.team?.id))}">
-                팀 상세 보기
-              </a>
-              ${jr.cancellable ? `<button class="btn btn-sm btn-outline-danger ms-2" data-jr-cancel="${jr.id}">지원 취소</button>` : ""}
-            </div>
-          </div>
-        </div>
-      </div>
-    `).join("");
-
-    box.querySelectorAll("[data-jr-cancel]").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        const id = btn.getAttribute("data-jr-cancel");
-        try {
-          await IM.apiFetch(`/join-requests/${id}/cancel`, { method: "POST" });
-          IM.showToast("지원이 취소되었습니다.", "secondary");
-          renderMyJoinRequests();
-        } catch (e) {
-          IM.showToast(e?.message || "취소에 실패했습니다.", "danger");
-        }
+      bodyEl.querySelectorAll("[data-cancel]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const id = btn.getAttribute("data-cancel");
+          try {
+            await IM.apiFetch(`/join-requests/${id}/cancel`, { method: "POST" });
+            IM.showToast("지원이 취소되었습니다.", "secondary");
+            renderMyJoinRequests();
+          } catch (e) {
+            IM.showToast(e?.message || "취소에 실패했습니다.", "danger");
+          }
+        });
       });
-    });
+    } catch (e) {
+      bodyEl.innerHTML = `<div class="text-danger">불러오기 실패: ${IM.escapeHtml(e.message || "")}</div>`;
+    }
   }
 
 
@@ -757,6 +818,10 @@ async function viewMyTeam() {
       const leaderName = team.leaderName
               || cache.profileByUserId[String(team.leaderUserId)]?.name
               || "-";
+      const memo = team.practiceNote || "";
+      const memoButton = memo
+        ? `<button class="btn btn-sm btn-outline-secondary" data-team-note="${IM.escapeHtml(String(teamId))}">보기</button>`
+        : `<span class="muted small">-</span>`;
 
       return `
         <div class="col-lg-6">
@@ -781,7 +846,7 @@ async function viewMyTeam() {
               <div class="mt-2">
                 <br>
                 <div class="muted small">팀 안내사항/공지</div>
-                <div>${IM.escapeHtml(team.practiceNote || "-")}</div>
+                <div>${memoButton}</div>
               </div>
               <div class="mt-auto pt-3">
                 <a class="btn btn-dark w-100" href="#/teams/${IM.escapeHtml(teamId)}">
@@ -798,7 +863,17 @@ async function viewMyTeam() {
       <div class="row g-3">
         ${cards}
       </div>
+      ${renderPracticeNoteModal()}
     `);
+
+    const memoById = new Map(teams.map(team => [String(pickTeamId(team)), team.practiceNote || ""]));
+    document.querySelectorAll("[data-team-note]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const teamId = btn.getAttribute("data-team-note");
+        const team = teams.find(t => String(pickTeamId(t)) === String(teamId));
+        openPracticeNoteModal(team?.teamName || "팀", memoById.get(String(teamId)));
+      });
+    });
   };
 
   // 팀장(내가 만든 팀) fallback: /teams 목록에서 leaderUserId로 내 팀 찾기
@@ -965,8 +1040,13 @@ async function viewMyTeam() {
               <div class="mb-1"><span class="muted">조율 중인 연습 위치</span> : ${IM.escapeHtml(formatPracticeRegions(team))}</div>
               <br><div class="mb-1"><span class="muted">팀 생성 날짜</span> : ${IM.escapeHtml(fmtDate(team.createdAt))}</div>
               <br><div class="mt-2">
-                <div class="muted small">팀 안내사항/공지</div>
-                <div>${IM.escapeHtml(team.practiceNote || "-")}</div>
+                <div class="d-flex align-items-center justify-content-between">
+                  <div class="muted small">팀 안내사항/공지</div>
+                  <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-secondary" id="btnViewPracticeNote">보기</button>
+                    ${isLeader ? `<button class="btn btn-sm btn-dark" id="btnEditPracticeNote">수정</button>` : ""}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1084,6 +1164,26 @@ async function viewMyTeam() {
           </div>
         </div>
       </div>
+      ${renderPracticeNoteModal()}
+      <div class="modal fade" id="practiceNoteEditModal" tabindex="-1">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">팀 안내사항/공지 수정</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <label class="form-label">공지 내용</label>
+              <textarea class="form-control" id="practiceNoteEditInput" rows="4" maxlength="500"></textarea>
+              <div class="small muted mt-2">최대 500자</div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+              <button class="btn btn-dark" id="btnSavePracticeNote">저장</button>
+            </div>
+          </div>
+        </div>
+      </div>
     `);
 
     // bind apply & leader buttons
@@ -1097,6 +1197,42 @@ async function viewMyTeam() {
       applyModalEl.addEventListener("hidden.bs.modal", () => {
         pendingApplyPositionId = null;
         if (applyMessageEl) applyMessageEl.value = "";
+      });
+    }
+
+    const viewNoteBtn = document.getElementById("btnViewPracticeNote");
+    if (viewNoteBtn) {
+      viewNoteBtn.addEventListener("click", () => {
+        openPracticeNoteModal(team.teamName || "팀", team.practiceNote || "");
+      });
+    }
+
+    const editNoteBtn = document.getElementById("btnEditPracticeNote");
+    const editModalEl = document.getElementById("practiceNoteEditModal");
+    const editModal = editModalEl ? new bootstrap.Modal(editModalEl) : null;
+    const editInput = document.getElementById("practiceNoteEditInput");
+    const saveNoteBtn = document.getElementById("btnSavePracticeNote");
+
+    if (editNoteBtn && editModal && editInput && saveNoteBtn) {
+      editNoteBtn.addEventListener("click", () => {
+        editInput.value = team.practiceNote || "";
+        editModal.show();
+      });
+
+      saveNoteBtn.addEventListener("click", async () => {
+        const nextNote = editInput.value.trim();
+        saveNoteBtn.disabled = true;
+        try {
+          const updated = await IM.apiFetch(`/teams/${teamId}/practice-note`, {
+            method: "PATCH",
+            body: { practiceNote: nextNote || null }
+          });
+          team.practiceNote = updated?.practiceNote ?? nextNote;
+          IM.showToast("공지사항이 수정되었습니다.", "success");
+          editModal.hide();
+        } finally {
+          saveNoteBtn.disabled = false;
+        }
       });
     }
 
@@ -1165,6 +1301,7 @@ async function viewMyTeam() {
       });
     }
 
+    initPositionStatsPolling(teamId, positions);
     initTeamChat(teamId);
   }
 
@@ -1177,39 +1314,53 @@ async function viewMyTeam() {
     const used = (statMap && Object.prototype.hasOwnProperty.call(statMap, String(p.id)))
       ? Number(statMap[String(p.id)] || 0)
       : 0;
-    const remain = Math.max(0, total - used);
-    const remainRatio = total ? (remain / total) : 0;
-    const slotStateClass = total
-      ? (remainRatio <= 0.2 ? "im-slot-danger" : remainRatio <= 0.4 ? "im-slot-warning" : "")
-      : "";
-    const slotTextClass = slotStateClass === "im-slot-danger"
-      ? "im-slot-text-danger"
-      : slotStateClass === "im-slot-warning"
-        ? "im-slot-text-warning"
-        : "";
-    const slotSegments = total
-      ? Array.from({ length: total }, (_, idx) => {
-        const isRemaining = idx < remain;
-        return `<span class="im-slot-segment ${isRemaining ? "is-remaining" : "is-used"}"></span>`;
-      }).join("")
-      : "";
-    const slotHtml = `
-      <div class="im-slot-track ${total ? slotStateClass : "im-slot-empty"}">
-        ${slotSegments || `<span class="muted small">-</span>`}
-      </div>
-      <div class="small muted mt-1 ${slotTextClass}">남은 자리: ${remain}</div>
-    `;
+    const slotHtml = renderSlotHtml(total, used);
 
     return `
       <tr>
         <td>${IM.escapeHtml(fmtEnum("instrument", p.instrument) || p.instrument)}</td>
         <td>${p.capacity}</td>
-        <td>${slotHtml}</td>
+        <td id="posSlot-${p.id}" data-position-id="${p.id}" data-capacity="${total}">${slotHtml}</td>
         <td>${IM.escapeHtml(fmtEnum("level", p.requiredLevelMin) || p.requiredLevelMin)}</td>
         <td class="d-none d-md-table-cell">${IM.escapeHtml(fmtDate(p.createdAt))}</td>
         <td class="text-end">${actions}</td>
       </tr>
     `;
+  }
+
+  function updatePositionSlots(positions, stats) {
+    const statMap = Array.isArray(stats)
+      ? Object.fromEntries(stats.map(s => [String(s.positionId), Number(s.acceptedCount || 0)]))
+      : {};
+    positions.forEach((position) => {
+      const cell = document.getElementById(`posSlot-${position.id}`);
+      if (!cell) return;
+      const total = Number(position.capacity || 0);
+      const used = Number(statMap[String(position.id)] || 0);
+      cell.innerHTML = renderSlotHtml(total, used);
+    });
+  }
+
+  function initPositionStatsPolling(teamId, positions) {
+    if (!positions.length) return;
+    const rows = document.getElementById("posRows");
+    if (!rows) return;
+
+    const loadStats = async () => {
+      try {
+        const stats = await IM.apiFetch(`/teams/${teamId}/positions/stats`, { auth: true, silent: true });
+        cache.positionStatsByTeamId[teamId] = stats;
+        updatePositionSlots(positions, stats);
+      } catch {
+        // ignore background errors
+      }
+    };
+
+    registerInterval(setInterval(() => {
+      if (!document.getElementById("posRows")) return;
+      loadStats();
+    }, 10000));
+    loadStats();
   }
 
   function leaderCreatePositionCard(teamId) {
@@ -1247,7 +1398,7 @@ async function viewMyTeam() {
     return `
       <div class="card mt-3">
         <div class="card-body">
-          <div class="fw-semibold mb-2">팀장 기능: 지원자 관리</div>
+          <div class="fw-semibold mb-2">장 기능: 지원자 관리</div>
           <div class="small-help">
             포지션 테이블에서 <span class="badge text-bg-light">지원자</span> 버튼을 눌러 목록을 보고 수락/거절할 수 있어요.
           </div>
@@ -1285,11 +1436,23 @@ async function viewMyTeam() {
         sendBtn.disabled = !enabled;
       };
 
-      async function loadMessages() {
-        bodyEl.innerHTML = `<div class="muted">불러오는 중...</div>`;
+      let pollingEnabled = true;
+
+      async function loadMessages({ showLoading = true } = {}) {
+        if (showLoading) {
+          bodyEl.innerHTML = `<div class="muted">불러오는 중...</div>`;
+        }
         try {
-          const list = await IM.apiFetch(`/teams/${teamId}/chat`, { auth: true, silent: true });
-          bodyEl.innerHTML = renderChatMessages(list || []);
+          const list = await IM.apiFetch(`/teams/${teamId}/chat`, { auth: true, silent: !showLoading });
+          const lastId = list && list.length ? String(list[list.length - 1].id || "") : "";
+          const rendered = renderChatMessages(list || []);
+          if (!showLoading && bodyEl.getAttribute("data-last-chat") === lastId) {
+            setEnabled(true);
+            if (helpEl) helpEl.textContent = "팀 멤버만 이용 가능";
+            return;
+          }
+          bodyEl.setAttribute("data-last-chat", lastId);
+          bodyEl.innerHTML = rendered;
           setEnabled(true);
           if (helpEl) helpEl.textContent = "팀 멤버만 이용 가능";
         } catch (e) {
@@ -1297,6 +1460,7 @@ async function viewMyTeam() {
             bodyEl.innerHTML = `<div class="muted">팀 멤버만 이용할 수 있습니다.</div>`;
             setEnabled(false);
             if (helpEl) helpEl.textContent = "팀 멤버만 이용 가능";
+            pollingEnabled = false;
             return;
           }
           bodyEl.innerHTML = `<div class="text-danger">불러오기 실패: ${IM.escapeHtml(e.message || "")}</div>`;
@@ -1330,6 +1494,10 @@ async function viewMyTeam() {
       });
 
       await loadMessages();
+      registerInterval(setInterval(() => {
+        if (!pollingEnabled || !document.getElementById("teamChatBody")) return;
+        loadMessages({ showLoading: false });
+      }, 8000));
     }
 
   async function openProfileModal(userId) {
@@ -1540,6 +1708,7 @@ async function viewMyTeam() {
     const parts = parseHash();
 
     // re-render nav state
+    clearIntervals();
     renderNav();
 
     try {

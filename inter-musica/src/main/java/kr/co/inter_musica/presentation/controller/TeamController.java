@@ -10,6 +10,7 @@ import kr.co.inter_musica.domain.security.SecurityUtil;
 import kr.co.inter_musica.presentation.dto.team.CreateTeamRequest;
 import kr.co.inter_musica.presentation.dto.team.CreateTeamResponse;
 import kr.co.inter_musica.presentation.dto.team.TeamSummaryResponse;
+import kr.co.inter_musica.presentation.dto.team.UpdatePracticeNoteRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -112,6 +113,27 @@ public class TeamController {
         );
 
         return ResponseEntity.ok(teamSummaryResponse);
+    }
+
+    @PatchMapping("/{teamId}/practice-note")
+    public ResponseEntity<TeamSummaryResponse> updatePracticeNote(
+            @PathVariable Long teamId,
+            @Valid @RequestBody UpdatePracticeNoteRequest request
+    ) {
+        long userId = SecurityUtil.currentUserId();
+        TeamJpaEntity team = teamService.updatePracticeNote(userId, teamId, request.getPracticeNote());
+        TeamSummaryResponse response = new TeamSummaryResponse(
+                team.getId(),
+                team.getTeamName(),
+                team.getPracticeRegion(),
+                toPracticeRegionCodes(team),
+                team.getPracticeNote(),
+                team.getCoreTimeStart(),
+                team.getCoreTimeEnd(),
+                team.getLeaderUserId(),
+                team.getCreatedAt()
+        );
+        return ResponseEntity.ok(response);
     }
 
     private List<String> toPracticeRegionCodes(TeamJpaEntity team) {

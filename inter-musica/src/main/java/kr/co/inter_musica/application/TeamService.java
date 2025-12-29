@@ -1,6 +1,8 @@
 package kr.co.inter_musica.application;
 
+import kr.co.inter_musica.domain.enums.ErrorCode;
 import kr.co.inter_musica.domain.enums.Region;
+import kr.co.inter_musica.domain.exception.ApiException;
 import kr.co.inter_musica.infrastructure.persistence.entity.RegionJpaEntity;
 import kr.co.inter_musica.infrastructure.persistence.entity.TeamMemberJpaEntity;
 import kr.co.inter_musica.infrastructure.persistence.entity.TeamJpaEntity;
@@ -81,6 +83,19 @@ public class TeamService {
     @Transactional(readOnly = true)
     public TeamJpaEntity findTeamById(Long teamId) {
         return teamJpaRepository.findById(teamId).orElse(null);
+    }
+
+    @Transactional
+    public TeamJpaEntity updatePracticeNote(long userId, Long teamId, String practiceNote) {
+        TeamJpaEntity team = teamJpaRepository.findById(teamId).orElse(null);
+        if (team == null) {
+            throw new ApiException(ErrorCode.TEAM_NOT_FOUND, "팀을 찾을 수 없습니다.");
+        }
+        if (!Objects.equals(team.getLeaderUserId(), userId)) {
+            throw new ApiException(ErrorCode.TEAM_FORBIDDEN, "팀장만 공지를 수정할 수 있습니다.");
+        }
+        team.setPracticeNote(practiceNote);
+        return team;
     }
 
     @Transactional(readOnly = true)
