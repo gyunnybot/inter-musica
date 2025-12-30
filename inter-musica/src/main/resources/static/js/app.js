@@ -639,7 +639,7 @@ async function loadTeams(region) {
             <div class="card-body">
               <div class="mb-3">
                 <label class="form-label">이메일</label>
-                <input class="form-control" value="${IM.escapeHtml(me?.email || "")}" disabled/>
+                <input class="form-control" value="${IM.escapeHtml(me?.email || "")}" placeholder="${IM.escapeHtml(me?.email || "")}" disabled/>
               </div>
               <div class="mb-3">
                 <label class="form-label">이름</label>
@@ -1055,11 +1055,9 @@ async function viewMyTeam() {
               <br><div class="mt-2">
                 <div class="d-flex align-items-center justify-content-between">
                   <div class="muted small">팀 안내사항/공지</div>
-                  <div class="d-flex gap-2">
-                    <button class="btn btn-sm btn-outline-secondary" id="btnViewPracticeNote">보기</button>
                     ${isLeader ? `<button class="btn btn-sm btn-dark" id="btnEditPracticeNote">수정</button>` : ""}
-                  </div>
                 </div>
+                <div class="mt-2 small" id="teamPracticeNote"></div>
               </div>
             </div>
           </div>
@@ -1204,13 +1202,21 @@ async function viewMyTeam() {
       </div>
     `);
 
+    const renderPracticeNote = (note) => {
+          const noteEl = document.getElementById("teamPracticeNote");
+          if (!noteEl) return;
+          const safeNote = note ? IM.escapeHtml(note).replace(/\n/g, "<br>") : "";
+          noteEl.innerHTML = safeNote ? safeNote : `<span class="muted">등록된 공지가 없습니다.</span>`;
+        };
+
     const updateTeamInfo = (nextTeam) => {
           team = nextTeam;
-          const regionsEl = document.getElementById("teamPracticeRegions");
-          const createdEl = document.getElementById("teamCreatedAt");
-          if (regionsEl) regionsEl.textContent = formatPracticeRegions(nextTeam);
-          if (createdEl) createdEl.textContent = fmtDate(nextTeam.createdAt);
-        };
+                const regionsEl = document.getElementById("teamPracticeRegions");
+                const createdEl = document.getElementById("teamCreatedAt");
+                if (regionsEl) regionsEl.textContent = formatPracticeRegions(nextTeam);
+                if (createdEl) createdEl.textContent = fmtDate(nextTeam.createdAt);
+                renderPracticeNote(nextTeam.practiceNote);
+              };
 
     const renderPositions = (nextPositions, nextStatMap) => {
           const countEl = document.getElementById("posCount");
@@ -1279,13 +1285,6 @@ async function viewMyTeam() {
       });
     }
 
-    const viewNoteBtn = document.getElementById("btnViewPracticeNote");
-    if (viewNoteBtn) {
-      viewNoteBtn.addEventListener("click", () => {
-        openPracticeNoteModal(team.teamName || "팀", team.practiceNote || "");
-      });
-    }
-
     const reloadTeamBtn = document.getElementById("btnReloadTeam");
         if (reloadTeamBtn) {
           reloadTeamBtn.addEventListener("click", async () => {
@@ -1333,6 +1332,7 @@ async function viewMyTeam() {
             body: { practiceNote: nextNote || null }
           });
           team.practiceNote = updated?.practiceNote ?? nextNote;
+          renderPracticeNote(team.practiceNote);
           IM.showToast("공지사항이 수정되었습니다.", "success");
           editModal.hide();
         } finally {
@@ -1362,6 +1362,7 @@ async function viewMyTeam() {
       });
     }
 
+    renderPracticeNote(team.practiceNote);
     renderPositions(positions, statMap);
 
     if (isLeader) {
@@ -1521,7 +1522,7 @@ async function viewMyTeam() {
           bodyEl.innerHTML = `<div class="muted">불러오는 중...</div>`;
         }
         try {
-          const list = await IM.apiFetch(`/teams/${teamId}/chat`, { auth: true, silent: !showLoading });
+          const list = await IM.apiFetch(`/teams/${teamId}/chat`, { auth: true, silent: true });
           const lastId = list && list.length ? String(list[list.length - 1].id || "") : "";
           const rendered = renderChatMessages(list || []);
           if (!showLoading && bodyEl.getAttribute("data-last-chat") === lastId) {
