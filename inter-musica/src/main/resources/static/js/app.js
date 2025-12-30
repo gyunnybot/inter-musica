@@ -844,9 +844,10 @@ async function viewMyTeam() {
                 ${IM.escapeHtml(fmtDate(team.createdAt))}
               </div>
               <div class="mt-2">
-                <br>
-                <div class="muted small">팀 안내사항/공지</div>
-                <div>${memoButton}</div>
+                <div class="d-flex align-items-center justify-content-between">
+                                  <div class="muted small">팀 안내사항/공지</div>
+                                  <div>${memoButton}</div>
+                                </div>
               </div>
               <div class="mt-auto pt-3">
                 <a class="btn btn-dark w-100" href="#/teams/${IM.escapeHtml(teamId)}">
@@ -1057,7 +1058,7 @@ async function viewMyTeam() {
                   <div class="muted small">팀 안내사항/공지</div>
                     ${isLeader ? `<button class="btn btn-sm btn-dark" id="btnEditPracticeNote">수정</button>` : ""}
                 </div>
-                <div class="mt-2 small" id="teamPracticeNote"></div>
+                <div class="im-practice-note mt-2 small" id="teamPracticeNote"></div>
               </div>
             </div>
           </div>
