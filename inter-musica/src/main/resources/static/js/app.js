@@ -183,7 +183,7 @@
     `;
   }
 
-  async function ensureMe() {
+  async function ensureMe(silent = false) {
     const token = IM.getToken();
     if (!token) { state.me = null; state.myTeam = undefined; state.myTeams = undefined; return null; }
     if (state.me) return state.me;
@@ -191,7 +191,7 @@
 
     state.loadingMe = true;
     try {
-      state.me = await IM.apiFetch("/profiles/me", { auth: true });
+      state.me = await IM.apiFetch("/profiles/me", { auth: true, silent });
     } catch {
       state.me = null;
     } finally {
@@ -629,7 +629,7 @@ async function loadTeams(region) {
 
   async function viewProfile() {
     if (!requireAuth()) return;
-    await ensureMe();
+    await ensureMe(true);
     const me = state.me;
 
     renderShell("내 프로필", `
@@ -937,7 +937,7 @@ async function viewMyTeam() {
 
   async function viewCreateTeam() {
     if (!requireAuth()) return;
-    await ensureMe();
+    await ensureMe(true);
     await ensureMyTeam(true);
 
     renderShell("팀 만들기", `
@@ -1009,10 +1009,11 @@ async function viewMyTeam() {
       <div class="muted">불러오는 중...</div>
     `);
 
-    const [team, positions] = await Promise.all([
+    let [team, rawPositions] = await Promise.all([
       IM.apiFetch(`/teams/${teamId}`, { auth: true }),
       IM.apiFetch(`/teams/${teamId}/positions`, { auth: true })
     ]);
+    const positions = asArray(rawPositions);
 
     // 남은 슬롯 시각화를 위한 통계(있으면 사용)
     // 권장 API: GET /teams/{teamId}/positions/stats -> [{ positionId, acceptedCount }]
@@ -1023,9 +1024,10 @@ async function viewMyTeam() {
     } catch {
       stats = cache.positionStatsByTeamId[teamId] || null;
     }
-    const statMap = stats
-      ? Object.fromEntries(stats.map(s => [String(s.positionId), Number(s.acceptedCount || 0)]))
-      : null;
+    const toStatMap = (statsList) => (statsList
+          ? Object.fromEntries(statsList.map(s => [String(s.positionId), Number(s.acceptedCount || 0)]))
+          : null);
+    const statMap = toStatMap(stats);
 
     await ensureMe();
     const me = state.me;
@@ -1036,9 +1038,20 @@ async function viewMyTeam() {
         <div class="col-lg-5">
           <div class="card">
             <div class="card-body">
-              <div class="fw-semibold mb-2">팀 정보</div>
-              <div class="mb-1"><span class="muted">조율 중인 연습 위치</span> : ${IM.escapeHtml(formatPracticeRegions(team))}</div>
-              <br><div class="mb-1"><span class="muted">팀 생성 날짜</span> : ${IM.escapeHtml(fmtDate(team.createdAt))}</div>
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                              <div class="fw-semibold">팀 정보</div>
+                              <button class="btn btn-sm btn-outline-dark" id="btnReloadTeam">
+                                <i class="bi bi-arrow-clockwise me-1"></i>새로고침
+                              </button>
+                            </div>
+                            <div class="mb-1">
+                              <span class="muted">조율 중인 연습 위치</span> :
+                              <span id="teamPracticeRegions">${IM.escapeHtml(formatPracticeRegions(team))}</span>
+                            </div>
+                            <br><div class="mb-1">
+                              <span class="muted">팀 생성 날짜</span> :
+                              <span id="teamCreatedAt">${IM.escapeHtml(fmtDate(team.createdAt))}</span>
+                            </div>
               <br><div class="mt-2">
                 <div class="d-flex align-items-center justify-content-between">
                   <div class="muted small">팀 안내사항/공지</div>
@@ -1059,7 +1072,12 @@ async function viewMyTeam() {
             <div class="card-body">
               <div class="d-flex align-items-center justify-content-between mb-2">
                 <div class="fw-semibold">모집 포지션</div>
-                <div class="muted small">${positions.length}개</div>
+                <div class="d-flex align-items-center gap-2">
+                                  <div class="muted small" id="posCount">${positions.length}개</div>
+                                  <button class="btn btn-sm btn-outline-dark" id="btnReloadPositions">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>새로고침
+                                  </button>
+                                </div>
               </div>
 
               <div class="table-responsive">
@@ -1186,6 +1204,67 @@ async function viewMyTeam() {
       </div>
     `);
 
+    const updateTeamInfo = (nextTeam) => {
+          team = nextTeam;
+          const regionsEl = document.getElementById("teamPracticeRegions");
+          const createdEl = document.getElementById("teamCreatedAt");
+          if (regionsEl) regionsEl.textContent = formatPracticeRegions(nextTeam);
+          if (createdEl) createdEl.textContent = fmtDate(nextTeam.createdAt);
+        };
+
+    const renderPositions = (nextPositions, nextStatMap) => {
+          const countEl = document.getElementById("posCount");
+          const rowsEl = document.getElementById("posRows");
+          if (!rowsEl) return;
+
+          if (countEl) countEl.textContent = `${nextPositions.length}개`;
+
+          rowsEl.innerHTML = nextPositions.length
+            ? nextPositions.map(p => positionRowHtml(p, teamId, isLeader, me, team, nextStatMap)).join("")
+            : `<tr><td colspan="6" class="muted">등록된 포지션이 없습니다.</td></tr>`;
+
+          document.querySelectorAll("[data-apply]").forEach(btn => {
+            btn.addEventListener("click", async () => {
+              if (!requireAuth()) return;
+              await ensureMyTeam();
+              const myTeams = Array.isArray(state.myTeams) ? state.myTeams : (state.myTeam ? [state.myTeam] : []);
+              const myTeamIds = myTeams.map(t => String(pickTeamId(t)));
+              const isMemberOfOtherTeam = myTeamIds.some(id => id && id !== String(teamId));
+              const isLeaderOfOtherTeam = myTeams.some(t => Number(t.leaderUserId) === Number(state.me?.userId) && String(pickTeamId(t)) !== String(teamId));
+
+              if (isMemberOfOtherTeam && !isLeaderOfOtherTeam) {
+                IM.showToast("이미 다른 팀에 합류되어 있어 지원할 수 없습니다.", "warning");
+                return;
+              }
+
+              pendingApplyPositionId = btn.getAttribute("data-apply");
+              if (applyMessageEl) applyMessageEl.value = "";
+              if (applyModal) applyModal.show();
+            });
+          });
+
+          if (isLeader) {
+            document.querySelectorAll("[data-applicants]").forEach(btn => {
+              btn.addEventListener("click", async () => {
+                const positionId = btn.getAttribute("data-applicants");
+                openApplicantsModal(teamId, positionId);
+              });
+            });
+          }
+        };
+
+        const refreshPositions = async () => {
+          const [nextPositions, nextStats] = await Promise.all([
+            IM.apiFetch(`/teams/${teamId}/positions`, { auth: true }),
+            IM.apiFetch(`/teams/${teamId}/positions/stats`, { auth: true, silent: true })
+          ]);
+          positions.splice(0, positions.length, ...asArray(nextPositions));
+          if (Array.isArray(nextStats)) {
+            cache.positionStatsByTeamId[teamId] = nextStats;
+          }
+          renderPositions(positions, toStatMap(nextStats));
+        };
+
     // bind apply & leader buttons
     let pendingApplyPositionId = null;
     const applyModalEl = document.getElementById("applyModal");
@@ -1206,6 +1285,32 @@ async function viewMyTeam() {
         openPracticeNoteModal(team.teamName || "팀", team.practiceNote || "");
       });
     }
+
+    const reloadTeamBtn = document.getElementById("btnReloadTeam");
+        if (reloadTeamBtn) {
+          reloadTeamBtn.addEventListener("click", async () => {
+            reloadTeamBtn.disabled = true;
+            try {
+              await refreshTeamInfo();
+              IM.showToast("팀 정보를 새로고침했습니다.", "secondary");
+            } finally {
+              reloadTeamBtn.disabled = false;
+            }
+          });
+        }
+
+        const reloadPositionsBtn = document.getElementById("btnReloadPositions");
+        if (reloadPositionsBtn) {
+          reloadPositionsBtn.addEventListener("click", async () => {
+            reloadPositionsBtn.disabled = true;
+            try {
+              await refreshPositions();
+              IM.showToast("모집 포지션을 새로고침했습니다.", "secondary");
+            } finally {
+              reloadPositionsBtn.disabled = false;
+            }
+          });
+        }
 
     const editNoteBtn = document.getElementById("btnEditPracticeNote");
     const editModalEl = document.getElementById("practiceNoteEditModal");
@@ -1257,25 +1362,7 @@ async function viewMyTeam() {
       });
     }
 
-    document.querySelectorAll("[data-apply]").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        if (!requireAuth()) return;
-        await ensureMyTeam();
-        const myTeams = Array.isArray(state.myTeams) ? state.myTeams : (state.myTeam ? [state.myTeam] : []);
-        const myTeamIds = myTeams.map(t => String(pickTeamId(t)));
-        const isMemberOfOtherTeam = myTeamIds.some(id => id && id !== String(teamId));
-        const isLeaderOfOtherTeam = myTeams.some(t => Number(t.leaderUserId) === Number(state.me?.userId) && String(pickTeamId(t)) !== String(teamId));
-
-        if (isMemberOfOtherTeam && !isLeaderOfOtherTeam) {
-          IM.showToast("이미 다른 팀에 합류되어 있어 지원할 수 없습니다.", "warning");
-          return;
-        }
-
-        pendingApplyPositionId = btn.getAttribute("data-apply");
-        if (applyMessageEl) applyMessageEl.value = "";
-        if (applyModal) applyModal.show();
-      });
-    });
+    renderPositions(positions, statMap);
 
     if (isLeader) {
       // create position
@@ -1288,16 +1375,8 @@ async function viewMyTeam() {
           method: "POST",
           body: { instrument, capacity, requiredLevelMin }
         });
-        IM.showToast(`포지션 생성됨 (id=${id})`, "success");
-        window.location.hash = `#/teams/${teamId}`; // reload
-      });
 
-      // open applicants modal
-      document.querySelectorAll("[data-applicants]").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          const positionId = btn.getAttribute("data-applicants");
-          openApplicantsModal(teamId, positionId);
-        });
+        await refreshPositions();
       });
     }
 
@@ -1342,7 +1421,6 @@ async function viewMyTeam() {
   }
 
   function initPositionStatsPolling(teamId, positions) {
-    if (!positions.length) return;
     const rows = document.getElementById("posRows");
     if (!rows) return;
 
